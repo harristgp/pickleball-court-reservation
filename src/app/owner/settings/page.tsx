@@ -1,24 +1,22 @@
 import type { Metadata } from 'next';
 import { Info } from 'lucide-react';
-import { requireOwnedClub } from '@/lib/session';
-import { Card, CardHeader, EmptyState } from '@/components/ui';
+import { prisma } from '@/lib/prisma';
+import { requireOwner } from '@/lib/session';
+import { Card, CardHeader } from '@/components/ui';
 import { PaymentConfigForm, type PaymentMethodFormDefaults } from '@/components/owner/PaymentConfigForm';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Payment settings' };
 
 export default async function OwnerSettingsPage() {
-  const { club } = await requireOwnedClub('/owner/settings');
+  const { userId } = await requireOwner('/owner/settings');
 
-  if (!club) {
-    return (
-      <Card className="p-6">
-        <EmptyState title="No club assigned" description="Payment settings unlock once your club is provisioned." />
-      </Card>
-    );
-  }
+  const methods = await prisma.paymentMethod.findMany({
+    where: { ownerId: userId, isActive: true },
+    orderBy: { sortOrder: 'asc' },
+  });
 
-  const methods: PaymentMethodFormDefaults[] = club.paymentMethods.map((m) => ({
+  const formMethods: PaymentMethodFormDefaults[] = methods.map((m) => ({
     id: m.id,
     name: m.name,
     accountName: m.accountName,
@@ -35,7 +33,7 @@ export default async function OwnerSettingsPage() {
           description="Players see these QR codes at checkout, then upload proof of payment. Add multiple methods (GCash, Maya, bank) so players can choose."
         />
         <div className="mt-5">
-          <PaymentConfigForm methods={methods} />
+          <PaymentConfigForm methods={formMethods} />
         </div>
       </Card>
 

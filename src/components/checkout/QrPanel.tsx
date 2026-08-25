@@ -45,7 +45,7 @@ export function QrPanel({
   if (paymentMethods.length === 0) {
     return (
       <Alert tone="error">
-        {clubName} has not published payment details yet. Contact the club before paying — your slot is held
+        {clubName} has not published payment details yet. Contact the owner before paying — your slot is held
         for 30 minutes.
       </Alert>
     );

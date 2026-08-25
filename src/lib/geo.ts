@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import type { NearbyClub } from '@/lib/types';
+import type { NearbyCourt } from '@/lib/types';
 import type { RadiusOption } from '@/lib/validators';
 
 const EARTH_RADIUS_KM = 6371;
@@ -8,11 +8,10 @@ const KM_PER_DEGREE_LAT = 111.045;
 interface NearbyRow {
   id: string;
   name: string;
-  slug: string;
+  ownerId: string;
+  ownerName: string;
   city: string;
   address: string;
-  description: string;
-  imageUrl: string | null;
   latitude: number;
   longitude: number;
   minRate: string | number | null;
@@ -43,7 +42,7 @@ export function haversineKm(
 }
 
 /**
- * Clubs within `radiusKm` of a point, nearest first.
+ * Courts within `radiusKm` of a point, nearest first.
  *
  * Two-stage filter. The BETWEEN clauses are a cheap bounding box that the
  * (latitude, longitude) index can serve, discarding almost every row without
@@ -53,13 +52,13 @@ export function haversineKm(
  *
  * LEAST(1.0, ...) clamps the acos argument: at distance zero floating point
  * rounding can push the cosine fractionally above 1, which would make acos()
- * return NaN and silently drop the club a player is standing inside.
+ * return NaN and silently drop the court a player is standing inside.
  */
-export async function findNearbyClubs(
+export async function findNearbyCourts(
   lat: number,
   lng: number,
   radiusKm: RadiusOption | number,
-): Promise<NearbyClub[]> {
+): Promise<NearbyCourt[]> {
   const latDelta = radiusKm / KM_PER_DEGREE_LAT;
   // Longitude degrees shrink toward the poles; guard the cosine near +/-90.
   const lngDelta = radiusKm / (KM_PER_DEGREE_LAT * Math.max(0.01, Math.cos((lat * Math.PI) / 180)));
@@ -67,31 +66,30 @@ export async function findNearbyClubs(
   const rows = await prisma.$queryRaw<NearbyRow[]>`
     SELECT * FROM (
       SELECT
-        c.id,
-        c.name,
-        c.slug,
-        c.city,
-        c.address,
-        c.description,
-        c."imageUrl",
-        c.latitude,
-        c.longitude,
-        MIN(ct."hourlyRate")                                          AS "minRate",
-        MAX(ct."hourlyRate")                                          AS "maxRate",
-        COUNT(ct.id)                                                  AS "courtCount",
-        COALESCE(BOOL_OR(ct.type = 'INDOOR'), false)                  AS "hasIndoor",
-        COALESCE(BOOL_OR(ct.type = 'OUTDOOR'), false)                 AS "hasOutdoor",
+        ct.id,
+        ct.name,
+        ct."ownerId",
+        u.name AS "ownerName",
+        '' AS "city",
+        '' AS "address",
+        ct.latitude,
+        ct.longitude,
+        ct."hourlyRate" AS "minRate",
+        ct."hourlyRate" AS "maxRate",
+        COUNT(ct.id) OVER (PARTITION BY ct."ownerId") AS "courtCount",
+        (ct.type = 'INDOOR') AS "hasIndoor",
+        (ct.type = 'OUTDOOR') AS "hasOutdoor",
         ${EARTH_RADIUS_KM} * acos(LEAST(1.0,
-          cos(radians(${lat})) * cos(radians(c.latitude)) *
-          cos(radians(c.longitude) - radians(${lng})) +
-          sin(radians(${lat})) * sin(radians(c.latitude))
-        ))                                                            AS "distanceKm"
-      FROM "Club" c
-      LEFT JOIN "Court" ct ON ct."clubId" = c.id AND ct."isActive" = true
-      WHERE c."isActive" = true
-        AND c.latitude  BETWEEN ${lat - latDelta} AND ${lat + latDelta}
-        AND c.longitude BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
-      GROUP BY c.id
+          cos(radians(${lat})) * cos(radians(ct.latitude)) *
+          cos(radians(ct.longitude) - radians(${lng})) +
+          sin(radians(${lat})) * sin(radians(ct.latitude))
+        )) AS "distanceKm"
+      FROM "Court" ct
+      INNER JOIN "User" u ON u.id = ct."ownerId"
+      WHERE ct."isActive" = true
+        AND u."isActive" = true
+        AND ct.latitude  BETWEEN ${lat - latDelta} AND ${lat + latDelta}
+        AND ct.longitude BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
     ) q
     WHERE q."distanceKm" <= ${radiusKm}
     ORDER BY q."distanceKm" ASC
@@ -101,47 +99,47 @@ export async function findNearbyClubs(
   return rows.map(serialiseRow);
 }
 
-/** Every active club, unsorted by distance — the pre-geolocation view. */
-export async function listActiveClubs(): Promise<NearbyClub[]> {
-  const clubs = await prisma.club.findMany({
-    where: { isActive: true },
-    include: { courts: { where: { isActive: true }, select: { hourlyRate: true, type: true } } },
+/** Every active court, unsorted by distance — the pre-geolocation view. */
+export async function listActiveCourts(): Promise<NearbyCourt[]> {
+  const courts = await prisma.court.findMany({
+    where: { isActive: true, owner: { isActive: true } },
+    include: {
+      owner: { select: { id: true, name: true } },
+    },
     orderBy: { name: 'asc' },
   });
 
-  return clubs.map((club) => {
-    const rates = club.courts.map((court) => court.hourlyRate.toNumber());
+  return courts.map((court) => {
+    const rate = court.hourlyRate.toNumber();
     return {
-      id: club.id,
-      name: club.name,
-      slug: club.slug,
-      city: club.city,
-      address: club.address,
-      description: club.description,
-      imageUrl: club.imageUrl,
-      latitude: club.latitude,
-      longitude: club.longitude,
-      minRate: rates.length ? Math.min(...rates) : null,
-      maxRate: rates.length ? Math.max(...rates) : null,
-      courtCount: club.courts.length,
-      hasIndoor: club.courts.some((court) => court.type === 'INDOOR'),
-      hasOutdoor: club.courts.some((court) => court.type === 'OUTDOOR'),
+      id: court.id,
+      name: court.name,
+      ownerId: court.owner.id,
+      ownerName: court.owner.name,
+      city: '',
+      address: '',
+      latitude: court.latitude ?? 0,
+      longitude: court.longitude ?? 0,
+      minRate: rate,
+      maxRate: rate,
+      courtCount: 1,
+      hasIndoor: court.type === 'INDOOR',
+      hasOutdoor: court.type === 'OUTDOOR',
     };
   });
 }
 
-function serialiseRow(row: NearbyRow): NearbyClub {
+function serialiseRow(row: NearbyRow): NearbyCourt {
   const toNumber = (value: string | number | null) =>
     value === null ? null : typeof value === 'number' ? value : Number.parseFloat(value);
 
   return {
     id: row.id,
     name: row.name,
-    slug: row.slug,
+    ownerId: row.ownerId,
+    ownerName: row.ownerName,
     city: row.city,
     address: row.address,
-    description: row.description,
-    imageUrl: row.imageUrl,
     latitude: row.latitude,
     longitude: row.longitude,
     minRate: toNumber(row.minRate),

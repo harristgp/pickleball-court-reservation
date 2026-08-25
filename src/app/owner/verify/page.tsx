@@ -1,27 +1,19 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
-import { requireOwnedClub } from '@/lib/session';
+import { requireOwner } from '@/lib/session';
 import { decimalToNumber } from '@/lib/money';
 import { formatDateKey, formatDateTime, formatSlotRange, toDateKey } from '@/lib/dates';
-import { Card, CardHeader, EmptyState } from '@/components/ui';
+import { Card, CardHeader } from '@/components/ui';
 import { VerifyQueue, type QueueItem } from '@/components/owner/VerifyQueue';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Approvals queue' };
 
 export default async function OwnerVerifyPage() {
-  const { club } = await requireOwnedClub('/owner/verify');
-
-  if (!club) {
-    return (
-      <Card className="p-6">
-        <EmptyState title="No club assigned" description="The approvals queue unlocks once your club is provisioned." />
-      </Card>
-    );
-  }
+  const { userId } = await requireOwner('/owner/verify');
 
   const bookings = await prisma.booking.findMany({
-    where: { court: { clubId: club.id }, status: 'PENDING_VERIFICATION' },
+    where: { court: { ownerId: userId }, status: 'PENDING_VERIFICATION' },
     include: { receipt: true, court: true, player: { select: { name: true, email: true } } },
     orderBy: [{ createdAt: 'asc' }],
   });

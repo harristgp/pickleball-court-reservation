@@ -8,7 +8,7 @@ const STEPS = [
   {
     Icon: MapPin,
     title: 'Find a court nearby',
-    body: 'Share your location and see every active club within 10, 25, or 50 km, sorted by real distance.',
+    body: 'Share your location and see every active court within 10, 25, or 50 km, sorted by real distance.',
   },
   {
     Icon: CalendarDays,
@@ -18,20 +18,20 @@ const STEPS = [
   {
     Icon: QrCode,
     title: 'Pay by QR',
-    body: 'Scan the club QR code in your banking app, then upload the payment screenshot as proof.',
+    body: 'Scan the owner QR code in your banking app, then upload the payment screenshot as proof.',
   },
   {
     Icon: ShieldCheck,
     title: 'Get verified',
-    body: 'The club reviews your receipt and confirms. Rejected payments release the slot immediately.',
+    body: 'The owner reviews your receipt and confirms. Rejected payments release the slot immediately.',
   },
 ];
 
 export default async function HomePage() {
-  const [user, clubCount, courtCount] = await Promise.all([
+  const [user, ownerCount, courtCount] = await Promise.all([
     getCurrentUser(),
-    prisma.club.count({ where: { isActive: true } }),
-    prisma.court.count({ where: { isActive: true, club: { isActive: true } } }),
+    prisma.user.count({ where: { role: 'OWNER', isActive: true } }),
+    prisma.court.count({ where: { isActive: true, owner: { isActive: true } } }),
   ]);
 
   return (
@@ -42,8 +42,8 @@ export default async function HomePage() {
           Book the court. Pay by QR. Play.
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base text-zinc-300">
-          {clubCount} club{clubCount === 1 ? '' : 's'} and {courtCount} court{courtCount === 1 ? '' : 's'} taking
-          reservations right now, with payment verified by the club that owns the court.
+          {ownerCount} owner{ownerCount === 1 ? '' : 's'} and {courtCount} court{courtCount === 1 ? '' : 's'} taking
+          reservations right now, with payment verified by the owner that runs the court.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -56,7 +56,7 @@ export default async function HomePage() {
             href={user ? homePathForRole(user.role) : '/register'}
             className="rounded-lg bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/20"
           >
-            {user ? 'Go to my dashboard' : 'List your club'}
+            {user ? 'Go to my dashboard' : 'List your courts'}
           </Link>
         </div>
       </section>

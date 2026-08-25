@@ -28,12 +28,12 @@ interface Selection {
 }
 
 export function BookingGrid({
-  clubId,
+  ownerId,
   dateKey,
   courts,
   isSignedIn,
 }: {
-  clubId: string;
+  ownerId: string;
   dateKey: string;
   courts: CourtAvailability[];
   isSignedIn: boolean;
@@ -67,7 +67,7 @@ export function BookingGrid({
 
   function changeDate(nextKey: string) {
     setSelection(null);
-    router.push(`/clubs/${clubId}?date=${nextKey}`, { scroll: false });
+    router.push(`/owners/${ownerId}?date=${nextKey}`, { scroll: false });
   }
 
   return (
@@ -218,7 +218,7 @@ export function BookingGrid({
 
           <div className="mt-4">
             <label htmlFor="notes" className="mb-1.5 block text-xs font-medium text-zinc-600">
-              Note for the club (optional)
+              Note for the owner (optional)
             </label>
             <Textarea
               id="notes"

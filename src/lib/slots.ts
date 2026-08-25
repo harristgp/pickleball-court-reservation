@@ -45,25 +45,25 @@ export async function releaseExpiredHolds(db: Db = prisma, courtIds?: string[]):
 }
 
 export interface DayAvailabilityOptions {
-  clubId: string;
+  ownerId: string;
   dateKey: string;
   /** When set, slots held by this player are tagged with their booking id. */
   viewerId?: string;
 }
 
 /**
- * The court-by-hour grid for one club on one day.
+ * The court-by-hour grid for one owner on one day.
  *
  * Availability is derived from the same statuses the database index enforces,
  * so what the grid shows and what an insert will accept cannot disagree.
  */
 export async function getDayAvailability({
-  clubId,
+  ownerId,
   dateKey,
   viewerId,
 }: DayAvailabilityOptions): Promise<CourtAvailability[]> {
   const courts = await prisma.court.findMany({
-    where: { clubId, isActive: true },
+    where: { ownerId, isActive: true },
     orderBy: { name: 'asc' },
   });
   if (courts.length === 0) return [];

@@ -21,14 +21,13 @@ export interface CourtAvailability {
   slots: DaySlot[];
 }
 
-export interface NearbyClub {
+export interface NearbyCourt {
   id: string;
   name: string;
-  slug: string;
+  ownerId: string;
+  ownerName: string;
   city: string;
   address: string;
-  description: string;
-  imageUrl: string | null;
   latitude: number;
   longitude: number;
   minRate: number | null;
@@ -40,7 +39,7 @@ export interface NearbyClub {
   distanceKm?: number;
 }
 
-/** A payment method owned by a club, serialised for the checkout panel. */
+/** A payment method owned by an owner, serialised for the checkout panel. */
 export interface PaymentMethodSummary {
   id: string;
   name: string;

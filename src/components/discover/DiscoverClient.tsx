@@ -3,15 +3,15 @@
 import { useCallback, useMemo, useState, useTransition } from 'react';
 import { Crosshair, Loader2, MapPinOff, SearchX, SlidersHorizontal } from 'lucide-react';
 import { Alert, Badge, Button, EmptyState, Input, Select } from '@/components/ui';
-import { ClubCard } from '@/components/discover/ClubCard';
-import { MapPanel } from '@/components/map/MapPanel';
+import { OwnerCard } from '@/components/discover/OwnerCard';
+import { CourtMap } from '@/components/map/CourtMap';
 import { RADIUS_OPTIONS } from '@/lib/validators';
-import type { NearbyClub } from '@/lib/types';
+import type { NearbyCourt } from '@/lib/types';
 
 type CourtFilter = 'ALL' | 'INDOOR' | 'OUTDOOR';
 
-export function DiscoverClient({ initialClubs }: { initialClubs: NearbyClub[] }) {
-  const [clubs, setClubs] = useState(initialClubs);
+export function DiscoverClient({ initialCourts }: { initialCourts: NearbyCourt[] }) {
+  const [courts, setCourts] = useState(initialCourts);
   const [origin, setOrigin] = useState<[number, number] | null>(null);
   const [radius, setRadius] = useState<number>(25);
   const [geoError, setGeoError] = useState<string | null>(null);
@@ -19,34 +19,34 @@ export function DiscoverClient({ initialClubs }: { initialClubs: NearbyClub[] })
   const [pending, startTransition] = useTransition();
 
   const [query, setQuery] = useState('');
-  const [city, setCity] = useState('ALL');
   const [courtType, setCourtType] = useState<CourtFilter>('ALL');
-
-  const cities = useMemo(
-    () => Array.from(new Set(initialClubs.map((club) => club.city))).sort(),
-    [initialClubs],
-  );
 
   const fetchNearby = useCallback(
     (lat: number, lng: number, km: number) => {
       startTransition(async () => {
         try {
-          const response = await fetch(`/api/clubs/nearby?lat=${lat}&lng=${lng}&radius=${km}`);
-          if (!response.ok) throw new Error('Nearby search failed');
-          const data: { clubs: NearbyClub[] } = await response.json();
-          setClubs(data.clubs);
+          // For now, just filter by distance client-side since we removed the API route
+          const { haversineKm } = await import('@/lib/geo');
+          const filtered = initialCourts
+            .map((court) => ({
+              ...court,
+              distanceKm: haversineKm(lat, lng, court.latitude, court.longitude),
+            }))
+            .filter((court) => court.distanceKm <= km)
+            .sort((a, b) => a.distanceKm - b.distanceKm);
+          setCourts(filtered);
         } catch {
-          setGeoError('Could not load nearby clubs. Showing all clubs instead.');
-          setClubs(initialClubs);
+          setGeoError('Could not load nearby courts. Showing all courts instead.');
+          setCourts(initialCourts);
         }
       });
     },
-    [initialClubs],
+    [initialCourts],
   );
 
   const locate = useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setGeoError('This browser does not support location sharing. Showing all clubs.');
+      setGeoError('This browser does not support location sharing. Showing all courts.');
       return;
     }
 
@@ -63,11 +63,11 @@ export function DiscoverClient({ initialClubs }: { initialClubs: NearbyClub[] })
       (error) => {
         setLocating(false);
         // A denied or unavailable location must never blank the page: the full
-        // club list is still perfectly usable, just unsorted by distance.
+        // court list is still perfectly usable, just unsorted by distance.
         setGeoError(
           error.code === error.PERMISSION_DENIED
-            ? 'Location permission denied. Showing all clubs instead.'
-            : 'Could not read your location. Showing all clubs instead.',
+            ? 'Location permission denied. Showing all courts instead.'
+            : 'Could not read your location. Showing all courts instead.',
         );
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
@@ -85,60 +85,44 @@ export function DiscoverClient({ initialClubs }: { initialClubs: NearbyClub[] })
   const clearLocation = useCallback(() => {
     setOrigin(null);
     setGeoError(null);
-    setClubs(initialClubs);
-  }, [initialClubs]);
+    setCourts(initialCourts);
+  }, [initialCourts]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return clubs.filter((club) => {
-      if (city !== 'ALL' && club.city !== city) return false;
-      if (courtType === 'INDOOR' && !club.hasIndoor) return false;
-      if (courtType === 'OUTDOOR' && !club.hasOutdoor) return false;
+    return courts.filter((court) => {
+      if (courtType === 'INDOOR' && !court.hasIndoor) return false;
+      if (courtType === 'OUTDOOR' && !court.hasOutdoor) return false;
       if (!needle) return true;
       return (
-        club.name.toLowerCase().includes(needle) ||
-        club.city.toLowerCase().includes(needle) ||
-        club.address.toLowerCase().includes(needle)
+        court.name.toLowerCase().includes(needle) ||
+        court.ownerName.toLowerCase().includes(needle)
       );
     });
-  }, [city, clubs, courtType, query]);
+  }, [courts, courtType, query]);
 
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-card">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[200px] flex-1">
-            <label htmlFor="club-search" className="mb-1.5 block text-xs font-medium text-zinc-600">
+            <label htmlFor="court-search" className="mb-1.5 block text-xs font-medium text-zinc-600">
               Search
             </label>
             <Input
-              id="club-search"
+              id="court-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Club name, city, or street"
+              placeholder="Court or owner name"
             />
           </div>
 
           <div className="w-40">
-            <label htmlFor="club-city" className="mb-1.5 block text-xs font-medium text-zinc-600">
-              City
-            </label>
-            <Select id="club-city" value={city} onChange={(event) => setCity(event.target.value)}>
-              <option value="ALL">All cities</option>
-              {cities.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="w-40">
-            <label htmlFor="club-type" className="mb-1.5 block text-xs font-medium text-zinc-600">
+            <label htmlFor="court-type" className="mb-1.5 block text-xs font-medium text-zinc-600">
               Court type
             </label>
             <Select
-              id="club-type"
+              id="court-type"
               value={courtType}
               onChange={(event) => setCourtType(event.target.value as CourtFilter)}
             >
@@ -203,7 +187,7 @@ export function DiscoverClient({ initialClubs }: { initialClubs: NearbyClub[] })
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-zinc-600">
-              <span className="font-semibold text-zinc-900">{visible.length}</span> club
+              <span className="font-semibold text-zinc-900">{visible.length}</span> court
               {visible.length === 1 ? '' : 's'}
               {origin ? ` within ${radius} km` : ''}
             </p>
@@ -213,24 +197,24 @@ export function DiscoverClient({ initialClubs }: { initialClubs: NearbyClub[] })
           {visible.length === 0 ? (
             <EmptyState
               icon={origin ? <MapPinOff className="h-8 w-8" /> : <SearchX className="h-8 w-8" />}
-              title={origin ? 'No clubs in this radius' : 'No clubs match those filters'}
+              title={origin ? 'No courts in this radius' : 'No courts match those filters'}
               description={
                 origin
-                  ? 'Try a wider radius, or clear your location to browse every club.'
-                  : 'Clear the search box or pick a different city.'
+                  ? 'Try a wider radius, or clear your location to browse every court.'
+                  : 'Clear the search box or pick a different filter.'
               }
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              {visible.map((club) => (
-                <ClubCard key={club.id} club={club} />
+              {visible.map((court) => (
+                <OwnerCard key={court.id} court={court} />
               ))}
             </div>
           )}
         </div>
 
         <div className="h-[420px] overflow-hidden rounded-xl border border-zinc-200 shadow-card lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]">
-          <MapPanel clubs={visible} center={origin} radiusKm={origin ? radius : undefined} />
+          <CourtMap courts={visible} center={origin ? { lat: origin[0], lng: origin[1] } : undefined} />
         </div>
       </div>
     </div>

@@ -31,7 +31,7 @@ export default async function CheckoutPage({ params }: { params: { bookingId: st
       receipt: true,
       court: {
         include: {
-          club: {
+          owner: {
             include: {
               paymentMethods: {
                 where: { isActive: true },
@@ -48,11 +48,11 @@ export default async function CheckoutPage({ params }: { params: { bookingId: st
   if (booking.playerId !== user.id && user.role !== 'SUPER_ADMIN') notFound();
 
   const { court } = booking;
-  const club = court.club;
+  const owner = court.owner;
   const amount = decimalToNumber(booking.totalPrice);
   const dateKey = toDateKey(booking.date);
 
-  const paymentMethods: PaymentMethodSummary[] = club.paymentMethods.map((m) => ({
+  const paymentMethods: PaymentMethodSummary[] = owner.paymentMethods.map((m) => ({
     id: m.id,
     name: m.name,
     accountName: m.accountName,
@@ -64,11 +64,11 @@ export default async function CheckoutPage({ params }: { params: { bookingId: st
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <Link
-        href={`/clubs/${club.id}?date=${dateKey}`}
+        href={`/discover`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-800"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        Back to {club.name}
+        Back to courts
       </Link>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -83,7 +83,7 @@ export default async function CheckoutPage({ params }: { params: { bookingId: st
 
       <Card className="p-5">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Fact icon={<MapPin className="h-4 w-4" aria-hidden />} label="Club" value={club.name} sub={club.address} />
+          <Fact icon={<MapPin className="h-4 w-4" aria-hidden />} label="Owner" value={owner.name} />
           <Fact
             icon={<Trophy className="h-4 w-4" aria-hidden />}
             label="Court"
@@ -107,7 +107,7 @@ export default async function CheckoutPage({ params }: { params: { bookingId: st
       {booking.status === 'REJECTED' && (
         <Alert tone="error">
           {booking.receipt?.rejectionReason
-            ? `The club rejected this booking: ${booking.receipt.rejectionReason}`
+            ? `The owner rejected this booking: ${booking.receipt.rejectionReason}`
             : 'This booking was rejected or its payment hold expired. The slot is open again — book another time.'}
         </Alert>
       )}
@@ -116,17 +116,17 @@ export default async function CheckoutPage({ params }: { params: { bookingId: st
       )}
       {booking.status === 'PENDING_VERIFICATION' && (
         <Alert tone="neutral">
-          Receipt received. {club.name} is reviewing it; you will see the result on your dashboard.
+          Receipt received. {owner.name} is reviewing it; you will see the result on your dashboard.
         </Alert>
       )}
 
       {booking.status === 'PENDING_PAYMENT' || booking.status === 'PENDING_VERIFICATION' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="p-5">
-            <CardHeader title="1. Pay the club" description="Scan the QR or send to the account below." />
+            <CardHeader title="1. Pay the owner" description="Scan the QR or send to the account below." />
             <div className="mt-4">
               <QrPanel
-                clubName={club.name}
+                clubName={owner.name}
                 amount={amount}
                 paymentMethods={paymentMethods}
                 selectedMethodId={booking.paymentMethodId}
@@ -137,7 +137,7 @@ export default async function CheckoutPage({ params }: { params: { bookingId: st
           <Card className="p-5">
             <CardHeader
               title="2. Upload your receipt"
-              description="A screenshot of the successful transfer is what the club verifies."
+              description="A screenshot of the successful transfer is what the owner verifies."
             />
             <div className="mt-4">
               <ReceiptUploader

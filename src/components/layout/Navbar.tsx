@@ -15,7 +15,7 @@ export async function Navbar() {
             <Trophy className="h-5 w-5" aria-hidden />
           </span>
           <span className="text-base font-bold tracking-tight text-zinc-900">
-            Dink<span className="text-brand-600">Court</span>
+            <span className="text-brand-600">pcourt</span>
           </span>
         </Link>
 
@@ -32,17 +32,17 @@ export async function Navbar() {
 
           {user?.role === 'OWNER' && (
             <NavLink href="/owner" icon={<LayoutDashboard className="h-4 w-4" />}>
-              Club
+              Owner
             </NavLink>
           )}
 
           {user?.role === 'SUPER_ADMIN' && (
             <>
-              <NavLink href="/admin/clubs" icon={<ShieldCheck className="h-4 w-4" />}>
+              <NavLink href="/admin/owners" icon={<ShieldCheck className="h-4 w-4" />}>
                 Admin
               </NavLink>
               <NavLink href="/owner" icon={<Settings2 className="h-4 w-4" />}>
-                Club tools
+                Owner tools
               </NavLink>
             </>
           )}

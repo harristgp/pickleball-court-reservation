@@ -122,18 +122,8 @@ export const nearbyQuerySchema = z.object({
     }),
 });
 
-/** An owner registering their own club. Coordinates drive the proximity search. */
-export const clubRegistrationSchema = z.object({
-  name: z.string().trim().min(3, 'Club name must be at least 3 characters').max(80),
-  description: z.string().trim().min(20, 'Describe the club in at least a sentence').max(1000),
-  address: z.string().trim().min(5, 'Street address is required').max(160),
-  city: z.string().trim().min(2, 'City is required').max(80),
-  phone: z.string().trim().max(32).optional().or(z.literal('')),
-  latitude: z.coerce.number({ invalid_type_error: 'Latitude is required' }).min(-90).max(90),
-  longitude: z.coerce.number({ invalid_type_error: 'Longitude is required' }).min(-180).max(180),
-});
-
-export const toggleClubSchema = z.object({
-  clubId: z.string().cuid(),
+/** An admin toggling an owner's active status. */
+export const toggleOwnerSchema = z.object({
+  ownerId: z.string().cuid(),
   isActive: z.coerce.boolean(),
 });

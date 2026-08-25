@@ -4,9 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { storage } from '@/lib/storage';
-import { assertOwnsBooking, requireOwnedClub, requireRole } from '@/lib/session';
+import { assertOwnsBooking, requireOwner, requireRole } from '@/lib/session';
 import {
-  clubRegistrationSchema,
   courtFormSchema,
   deletePaymentMethodSchema,
   paymentMethodSchema,
@@ -61,7 +60,6 @@ export async function verifyBookingAction(_prev: ActionState, formData: FormData
   revalidatePath('/owner/verify');
   revalidatePath('/owner');
   revalidatePath('/dashboard');
-  revalidatePath(`/clubs/${booking.court.clubId}`);
 
   return {
     ok: true,
@@ -70,78 +68,13 @@ export async function verifyBookingAction(_prev: ActionState, formData: FormData
 }
 
 /**
- * Owner self-onboarding.
- *
- * /register lets someone sign up as a club owner, so the app has to be able to
- * create the club too — otherwise that account lands on an empty dashboard it
- * can never fill. One club per owner in this build, matching requireOwnedClub.
- */
-export async function registerClubAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { user, club: existing } = await requireOwnedClub('/owner');
-  if (existing) return { ok: false, message: 'Your account already has a club.' };
-
-  const parsed = clubRegistrationSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
-
-  const { name, description, address, city, phone, latitude, longitude } = parsed.data;
-
-  const club = await prisma.club.create({
-    data: {
-      ownerId: user.id,
-      name,
-      slug: await uniqueSlug(name),
-      description,
-      address,
-      city,
-      phone: phone || null,
-      latitude,
-      longitude,
-    },
-    select: { id: true },
-  });
-
-  revalidatePath('/owner');
-  revalidatePath('/discover');
-  revalidatePath('/admin/clubs');
-  return { ok: true, message: `${name} is live. Add your courts and payment details next.` };
-}
-
-/**
- * Slugs are unique across the platform, so a name collision between two clubs
- * has to resolve to a different slug rather than failing the whole signup.
- */
-async function uniqueSlug(name: string): Promise<string> {
-  const base =
-    name
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 60) || 'club';
-
-  const siblings = await prisma.club.findMany({
-    where: { slug: { startsWith: base } },
-    select: { slug: true },
-  });
-  const taken = new Set(siblings.map((row) => row.slug));
-  if (!taken.has(base)) return base;
-
-  for (let suffix = 2; suffix < 1000; suffix += 1) {
-    const candidate = `${base}-${suffix}`;
-    if (!taken.has(candidate)) return candidate;
-  }
-  return `${base}-${Date.now()}`;
-}
-
-/**
- * Create or update a payment method for the owner's club.
+ * Create or update a payment method for the owner.
  *
  * Owners can configure multiple methods (GCash, Maya, bank transfer, etc.),
  * each with its own QR code, account details, and instructions.
  */
 export async function savePaymentMethodAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { club } = await requireOwnedClub('/owner/settings');
-  if (!club) return { ok: false, message: 'You do not have a club yet.' };
+  const { userId } = await requireOwner('/owner/settings');
 
   const rawQr = formData.get('qrCode');
   const hasNewQr = rawQr instanceof File && rawQr.size > 0;
@@ -163,7 +96,7 @@ export async function savePaymentMethodAction(_prev: ActionState, formData: Form
 
   if (id) {
     const existing = await prisma.paymentMethod.findFirst({
-      where: { id, clubId: club.id },
+      where: { id, ownerId: userId },
       select: { id: true, qrCodeUrl: true },
     });
     if (!existing) return { ok: false, message: 'Payment method not found.' };
@@ -175,7 +108,7 @@ export async function savePaymentMethodAction(_prev: ActionState, formData: Form
     try {
       qrCodeUrl = (await storage.put(qrCode, 'qr')).url;
     } catch (error) {
-      logger.error('QR upload failed', { clubId: club.id, error: sanitizeError(error) });
+      logger.error('QR upload failed', { userId, error: sanitizeError(error) });
       return { ok: false, message: 'Failed to upload QR code. Please try again.' };
     }
   }
@@ -193,15 +126,15 @@ export async function savePaymentMethodAction(_prev: ActionState, formData: Form
       await prisma.paymentMethod.update({ where: { id }, data });
     } else {
       const maxSort = await prisma.paymentMethod.aggregate({
-        where: { clubId: club.id },
+        where: { ownerId: userId },
         _max: { sortOrder: true },
       });
       await prisma.paymentMethod.create({
-        data: { ...data, clubId: club.id, sortOrder: (maxSort._max.sortOrder ?? -1) + 1 },
+        data: { ...data, ownerId: userId, sortOrder: (maxSort._max.sortOrder ?? -1) + 1 },
       });
     }
   } catch (error) {
-    logger.error('savePaymentMethodAction db failed', { clubId: club.id, paymentMethodId: id, error: sanitizeError(error) });
+    logger.error('savePaymentMethodAction db failed', { userId, paymentMethodId: id, error: sanitizeError(error) });
     return { ok: false, message: 'Failed to save payment method. Please try again.' };
   }
 
@@ -215,8 +148,7 @@ export async function savePaymentMethodAction(_prev: ActionState, formData: Form
 
 /** Soft-delete a payment method by deactivating it. */
 export async function deletePaymentMethodAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { club } = await requireOwnedClub('/owner/settings');
-  if (!club) return { ok: false, message: 'You do not have a club yet.' };
+  const { userId } = await requireOwner('/owner/settings');
 
   const parsed = deletePaymentMethodSchema.safeParse({
     paymentMethodId: formData.get('paymentMethodId'),
@@ -224,7 +156,7 @@ export async function deletePaymentMethodAction(_prev: ActionState, formData: Fo
   if (!parsed.success) return { ok: false, message: 'Malformed request.' };
 
   const method = await prisma.paymentMethod.findFirst({
-    where: { id: parsed.data.paymentMethodId, clubId: club.id },
+    where: { id: parsed.data.paymentMethodId, ownerId: userId },
     select: { id: true, isActive: true },
   });
   if (!method) return { ok: false, message: 'Payment method not found.' };
@@ -235,7 +167,7 @@ export async function deletePaymentMethodAction(_prev: ActionState, formData: Fo
       data: { isActive: false },
     });
   } catch (error) {
-    logger.error('deletePaymentMethodAction db failed', { clubId: club.id, paymentMethodId: method.id, error: sanitizeError(error) });
+    logger.error('deletePaymentMethodAction db failed', { userId, paymentMethodId: method.id, error: sanitizeError(error) });
     return { ok: false, message: 'Failed to delete payment method. Please try again.' };
   }
 
@@ -244,8 +176,7 @@ export async function deletePaymentMethodAction(_prev: ActionState, formData: Fo
 }
 
 export async function saveCourtAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { club } = await requireOwnedClub('/owner/courts');
-  if (!club) return { ok: false, message: 'You do not have a club yet.' };
+  const { userId } = await requireOwner('/owner/courts');
 
   const parsed = courtFormSchema.safeParse({
     id: formData.get('id') ?? '',
@@ -261,7 +192,7 @@ export async function saveCourtAction(_prev: ActionState, formData: FormData): P
   const { id, name, type, hourlyRate, openHour, closeHour, isActive } = parsed.data;
 
   const duplicate = await prisma.court.findFirst({
-    where: { clubId: club.id, name, ...(id ? { NOT: { id } } : {}) },
+    where: { ownerId: userId, name, ...(id ? { NOT: { id } } : {}) },
     select: { id: true },
   });
   if (duplicate) return { ok: false, fieldErrors: { name: ['You already have a court with that name.'] } };
@@ -277,19 +208,18 @@ export async function saveCourtAction(_prev: ActionState, formData: FormData): P
 
   try {
     if (id) {
-      const owned = await prisma.court.findFirst({ where: { id, clubId: club.id }, select: { id: true } });
-      if (!owned) return { ok: false, message: 'That court belongs to another club.' };
+      const owned = await prisma.court.findFirst({ where: { id, ownerId: userId }, select: { id: true } });
+      if (!owned) return { ok: false, message: 'That court belongs to another owner.' };
       await prisma.court.update({ where: { id }, data });
     } else {
-      await prisma.court.create({ data: { ...data, clubId: club.id } });
+      await prisma.court.create({ data: { ...data, ownerId: userId } });
     }
   } catch (error) {
-    logger.error('saveCourtAction db failed', { clubId: club.id, courtId: id, error: sanitizeError(error) });
+    logger.error('saveCourtAction db failed', { userId, courtId: id, error: sanitizeError(error) });
     return { ok: false, message: 'Failed to save court. Please try again.' };
   }
 
   revalidatePath('/owner/courts');
-  revalidatePath(`/clubs/${club.id}`);
   return { ok: true, message: id ? 'Court updated.' : 'Court added.' };
 }
 
@@ -299,12 +229,11 @@ export async function saveCourtAction(_prev: ActionState, formData: FormData): P
  * record along with them.
  */
 export async function deleteCourtAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { club } = await requireOwnedClub('/owner/courts');
-  if (!club) return { ok: false, message: 'You do not have a club yet.' };
+  const { userId } = await requireOwner('/owner/courts');
 
   const courtId = String(formData.get('courtId') ?? '');
   const court = await prisma.court.findFirst({
-    where: { id: courtId, clubId: club.id },
+    where: { id: courtId, ownerId: userId },
     include: { _count: { select: { bookings: true } } },
   });
   if (!court) return { ok: false, message: 'Court not found.' };
@@ -318,10 +247,9 @@ export async function deleteCourtAction(_prev: ActionState, formData: FormData):
 
     await prisma.court.delete({ where: { id: courtId } });
   } catch (error) {
-    logger.error('deleteCourtAction db failed', { clubId: club.id, courtId, error: sanitizeError(error) });
+    logger.error('deleteCourtAction db failed', { userId, courtId, error: sanitizeError(error) });
     return { ok: false, message: 'Failed to delete court. Please try again.' };
   }
   revalidatePath('/owner/courts');
-  revalidatePath(`/clubs/${club.id}`);
   return { ok: true, message: 'Court deleted.' };
 }

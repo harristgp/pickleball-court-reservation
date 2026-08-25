@@ -3,37 +3,37 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/session';
-import { toggleClubSchema } from '@/lib/validators';
+import { toggleOwnerSchema } from '@/lib/validators';
 import type { ActionState } from '@/lib/types';
 
 /**
  * SUPER_ADMIN tenant kill switch.
  *
- * Deactivating hides the club from discovery and blocks new bookings
- * (createBookingAction rejects inactive clubs) but leaves existing bookings and
+ * Deactivating hides the owner's courts from discovery and blocks new bookings
+ * (createBookingAction rejects inactive owners) but leaves existing bookings and
  * their payment records intact, so suspending an account never destroys a
  * player's confirmed reservation.
  */
-export async function toggleClubActiveAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function toggleOwnerActiveAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireRole(['SUPER_ADMIN']);
 
-  const parsed = toggleClubSchema.safeParse({
-    clubId: formData.get('clubId'),
+  const parsed = toggleOwnerSchema.safeParse({
+    ownerId: formData.get('ownerId'),
     isActive: formData.get('isActive') === 'true',
   });
   if (!parsed.success) return { ok: false, message: 'Malformed request.' };
 
-  const club = await prisma.club.update({
-    where: { id: parsed.data.clubId },
+  const owner = await prisma.user.update({
+    where: { id: parsed.data.ownerId },
     data: { isActive: parsed.data.isActive },
     select: { name: true, isActive: true },
   });
 
-  revalidatePath('/admin/clubs');
+  revalidatePath('/admin/owners');
   revalidatePath('/discover');
 
   return {
     ok: true,
-    message: `${club.name} is now ${club.isActive ? 'active' : 'suspended'}.`,
+    message: `${owner.name} is now ${owner.isActive ? 'active' : 'suspended'}.`,
   };
 }

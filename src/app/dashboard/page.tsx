@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CalendarCheck, CalendarSearch, Clock, MapPin, Receipt, Trophy } from 'lucide-react';
-import type { Booking, BookingStatus, Court, Club, PaymentReceipt } from '@prisma/client';
+import type { Booking, BookingStatus, Court, PaymentReceipt, User } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/session';
 import { releaseExpiredHolds } from '@/lib/slots';
@@ -13,21 +13,21 @@ import { StatusBadge } from '@/components/layout/StatusBadge';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'My bookings' };
 
-type Row = Booking & { receipt: PaymentReceipt | null; court: Court & { club: Club } };
+type Row = Booking & { receipt: PaymentReceipt | null; court: Court & { owner: User } };
 
 const GROUPS: { key: BookingStatus; title: string; description: string }[] = [
   {
     key: 'PENDING_PAYMENT',
     title: 'Action needed',
-    description: 'Pay the club and upload your receipt before the hold expires.',
+    description: 'Pay the owner and upload your receipt before the hold expires.',
   },
   {
     key: 'PENDING_VERIFICATION',
-    title: 'Waiting on the club',
-    description: 'Your receipt is in the club’s verification queue.',
+    title: 'Waiting on the owner',
+    description: 'Your receipt is in the owner\'s verification queue.',
   },
   { key: 'CONFIRMED', title: 'Confirmed', description: 'Paid, verified, and on the schedule.' },
-  { key: 'REJECTED', title: 'Rejected or expired', description: 'These slots were released back to the club.' },
+  { key: 'REJECTED', title: 'Rejected or expired', description: 'These slots were released back to the owner.' },
 ];
 
 export default async function DashboardPage() {
@@ -36,7 +36,7 @@ export default async function DashboardPage() {
 
   const bookings = (await prisma.booking.findMany({
     where: { playerId: user.id },
-    include: { receipt: true, court: { include: { club: true } } },
+    include: { receipt: true, court: { include: { owner: true } } },
     orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
     take: 100,
   })) as Row[];
@@ -71,10 +71,10 @@ export default async function DashboardPage() {
           <EmptyState
             icon={<CalendarSearch className="h-6 w-6" aria-hidden />}
             title="No bookings yet"
-            description="Find a club near you and grab a court."
+            description="Find a court near you and grab a slot."
             action={
               <Link href="/discover">
-                <Button>Browse clubs</Button>
+                <Button>Browse courts</Button>
               </Link>
             }
           />
@@ -121,7 +121,7 @@ function BookingRow({ booking }: { booking: Row }) {
     <Card className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold text-zinc-900">{booking.court.club.name}</h3>
+          <h3 className="font-semibold text-zinc-900">{booking.court.owner.name}</h3>
           <StatusBadge status={booking.status} />
         </div>
         <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600">
@@ -132,10 +132,6 @@ function BookingRow({ booking }: { booking: Row }) {
           <span className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
             {formatDateKey(dateKey)} · {formatSlotRange(booking.startTime.getUTCHours())}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
-            {booking.court.club.city}
           </span>
         </p>
         {booking.status === 'REJECTED' && booking.receipt?.rejectionReason && (
@@ -154,7 +150,7 @@ function BookingRow({ booking }: { booking: Row }) {
             </Button>
           </Link>
         ) : (
-          <Link href={`/clubs/${booking.court.clubId}?date=${dateKey}`}>
+          <Link href={`/discover`}>
             <Button size="sm" variant="ghost">
               Book again
             </Button>

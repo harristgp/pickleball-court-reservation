@@ -1,8 +1,8 @@
 /**
- * Seeds a demo tenant set: one platform admin, two club owners, three players,
- * three Metro Manila clubs spread far enough apart that the 10/25/50 km radius
- * filters visibly differ, and bookings in every status so both the player
- * dashboard and the owner approvals queue are populated on first load.
+ * Seeds a demo tenant set: one platform admin, two court owners, three players,
+ * courts spread far enough apart that the 10/25/50 km radius filters visibly
+ * differ, and bookings in every status so both the player dashboard and the
+ * owner approvals queue are populated on first load.
  *
  * Run with: npm run seed
  */
@@ -70,18 +70,14 @@ interface CourtSeed {
   hourlyRate: number;
   openHour: number;
   closeHour: number;
-}
-
-interface ClubSeed {
-  slug: string;
-  name: string;
-  description: string;
-  address: string;
-  city: string;
-  phone: string;
   latitude: number;
   longitude: number;
-  ownerEmail: string;
+}
+
+interface OwnerSeed {
+  email: string;
+  name: string;
+  phone: string;
   accountName: string;
   accountNumber: string;
   instructions: string;
@@ -90,69 +86,48 @@ interface ClubSeed {
 
 // Coordinates are real Metro Manila locations. BGC → Quezon City is ~13 km and
 // BGC → Alabang is ~19 km, so 10 km, 25 km, and 50 km each return a different set.
-const CLUBS: ClubSeed[] = [
+const OWNERS: OwnerSeed[] = [
   {
-    slug: 'smash-city-bgc',
-    name: 'Smash City BGC',
-    description:
-      'Four cushioned outdoor courts and two air-conditioned indoor courts a block from High Street. Paddle rental, ball machine, and a coach on duty every evening.',
-    address: '7th Avenue corner 29th Street, Bonifacio Global City',
-    city: 'Taguig',
+    email: 'owner@smashcity.test',
+    name: 'Rina Delgado',
     phone: '0917 555 0142',
-    latitude: 14.5507,
-    longitude: 121.0501,
-    ownerEmail: 'owner@smashcity.test',
     accountName: 'Smash City Pickleball Inc.',
     accountNumber: '0917 555 0142',
     instructions:
       'Scan the QR with GCash or Maya and send the exact booking amount. Upload the confirmation screenshot here — we verify within 30 minutes during opening hours. Walk-ins are only accepted if the slot is still open.',
     courts: [
-      { name: 'Court 1 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23 },
-      { name: 'Court 2 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23 },
-      { name: 'Court 3', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22 },
-      { name: 'Court 4', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22 },
+      { name: 'Court 1 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23, latitude: 14.5507, longitude: 121.0501 },
+      { name: 'Court 2 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23, latitude: 14.5508, longitude: 121.0502 },
+      { name: 'Court 3', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22, latitude: 14.5509, longitude: 121.0503 },
+      { name: 'Court 4', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22, latitude: 14.5510, longitude: 121.0504 },
     ],
   },
   {
-    slug: 'northside-dinks-qc',
-    name: 'Northside Dinks',
-    description:
-      'A converted badminton hall in Quezon City with three indoor courts, wooden flooring, and league nights every Wednesday and Saturday.',
-    address: '18 Mother Ignacia Avenue, Diliman',
-    city: 'Quezon City',
+    email: 'owner@northsidedinks.test',
+    name: 'Marco Lim',
     phone: '0918 220 7781',
-    latitude: 14.6349,
-    longitude: 121.0388,
-    ownerEmail: 'owner@northsidedinks.test',
     accountName: 'Northside Dinks Sports Hub',
     accountNumber: '0918 220 7781',
     instructions:
       'Transfer via the QR code or to our BPI account, then upload the receipt. Bookings unverified 30 minutes before start time are released to the waitlist.',
     courts: [
-      { name: 'Hall A', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23 },
-      { name: 'Hall B', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23 },
-      { name: 'Hall C', type: 'INDOOR', hourlyRate: 550, openHour: 7, closeHour: 21 },
+      { name: 'Hall A', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23, latitude: 14.6349, longitude: 121.0388 },
+      { name: 'Hall B', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23, latitude: 14.6350, longitude: 121.0389 },
+      { name: 'Hall C', type: 'INDOOR', hourlyRate: 550, openHour: 7, closeHour: 21, latitude: 14.6351, longitude: 121.0390 },
     ],
   },
   {
-    slug: 'southbay-pickle-alabang',
-    name: 'Southbay Pickle Club',
-    description:
-      'Six outdoor courts under shade sails in Alabang, floodlit until midnight. Free parking, showers, and a smoothie bar on site.',
-    address: 'Southbay Boulevard, Alabang',
-    city: 'Muntinlupa',
-    phone: '0995 118 3390',
-    latitude: 14.4176,
-    longitude: 121.0409,
-    ownerEmail: 'owner@smashcity.test',
+    email: 'owner@smashcity.test', // same owner, second set of courts
+    name: 'Rina Delgado',
+    phone: '0917 555 0142',
     accountName: 'Southbay Pickle Club',
     accountNumber: '0995 118 3390',
     instructions:
       'Send payment through the QR below. Include your booking time in the notes of the transfer, then upload the screenshot so we can match it quickly.',
     courts: [
-      { name: 'Bay 1', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24 },
-      { name: 'Bay 2', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24 },
-      { name: 'Bay 3', type: 'OUTDOOR', hourlyRate: 400, openHour: 6, closeHour: 22 },
+      { name: 'Bay 1', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24, latitude: 14.4176, longitude: 121.0409 },
+      { name: 'Bay 2', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24, latitude: 14.4177, longitude: 121.0410 },
+      { name: 'Bay 3', type: 'OUTDOOR', hourlyRate: 400, openHour: 6, closeHour: 22, latitude: 14.4178, longitude: 121.0411 },
     ],
   },
 ];
@@ -164,19 +139,18 @@ async function main() {
   await prisma.booking.deleteMany();
   await prisma.court.deleteMany();
   await prisma.paymentMethod.deleteMany();
-  await prisma.club.deleteMany();
   await prisma.user.deleteMany();
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
   const [admin, ownerSmash, ownerNorth, alex, bea, caloy] = await Promise.all(
     [
-      { email: 'admin@dinkcourt.test', name: 'Platform Admin', role: 'SUPER_ADMIN' as const, phone: '0917 000 0001' },
+      { email: 'admin@pcourt.test', name: 'Platform Admin', role: 'SUPER_ADMIN' as const, phone: '0917 000 0001' },
       { email: 'owner@smashcity.test', name: 'Rina Delgado', role: 'OWNER' as const, phone: '0917 555 0142' },
       { email: 'owner@northsidedinks.test', name: 'Marco Lim', role: 'OWNER' as const, phone: '0918 220 7781' },
-      { email: 'player@dinkcourt.test', name: 'Alex Ramos', role: 'PLAYER' as const, phone: '0917 300 1122' },
-      { email: 'bea@dinkcourt.test', name: 'Bea Santos', role: 'PLAYER' as const, phone: '0917 300 3344' },
-      { email: 'caloy@dinkcourt.test', name: 'Caloy Uy', role: 'PLAYER' as const, phone: '0917 300 5566' },
+      { email: 'player@pcourt.test', name: 'Alex Ramos', role: 'PLAYER' as const, phone: '0917 300 1122' },
+      { email: 'bea@pcourt.test', name: 'Bea Santos', role: 'PLAYER' as const, phone: '0917 300 3344' },
+      { email: 'caloy@pcourt.test', name: 'Caloy Uy', role: 'PLAYER' as const, phone: '0917 300 5566' },
     ].map((user) => prisma.user.create({ data: { ...user, passwordHash } })),
   );
 
@@ -185,46 +159,50 @@ async function main() {
     'owner@northsidedinks.test': ownerNorth.id,
   };
 
-  console.log('› Creating clubs, courts, and payment configs…');
-  const created: { clubId: string; slug: string; courts: { id: string; name: string; rate: number }[] }[] = [];
+  console.log('› Creating owners, courts, and payment configs…');
+  const created: { ownerId: string; courts: { id: string; name: string; rate: number }[] }[] = [];
 
-  for (const seed of CLUBS) {
+  for (const seed of OWNERS) {
+    const ownerId = ownerByEmail[seed.email];
+    const slug = seed.courts[0]?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') ?? 'default';
     const qrCodeUrl = await writeQr(
-      `${seed.slug}.png`,
-      `PAY:${seed.accountName}|ACCT:${seed.accountNumber}|REF:${seed.slug.toUpperCase()}`,
+      `${slug}.png`,
+      `PAY:${seed.accountName}|ACCT:${seed.accountNumber}|REF:${slug.toUpperCase()}`,
     );
 
-    const club = await prisma.club.create({
-      data: {
-        ownerId: ownerByEmail[seed.ownerEmail],
-        slug: seed.slug,
-        name: seed.name,
-        description: seed.description,
-        address: seed.address,
-        city: seed.city,
-        phone: seed.phone,
-        latitude: seed.latitude,
-        longitude: seed.longitude,
-        isActive: true,
-        paymentMethods: {
-          create: {
-            name: seed.accountName.includes('GCash') ? 'GCash' : seed.accountName.includes('Maya') ? 'Maya' : 'Default',
-            qrCodeUrl,
-            accountName: seed.accountName,
-            accountNumber: seed.accountNumber,
-            instructions: seed.instructions,
-            sortOrder: 0,
+    const courts = await Promise.all(
+      seed.courts.map((court) =>
+        prisma.court.create({
+          data: {
+            ownerId,
+            name: court.name,
+            type: court.type,
+            hourlyRate: court.hourlyRate,
+            openHour: court.openHour,
+            closeHour: court.closeHour,
+            latitude: court.latitude,
+            longitude: court.longitude,
+            isActive: true,
           },
-        },
-        courts: { create: seed.courts.map((court) => ({ ...court })) },
+        }),
+      ),
+    );
+
+    await prisma.paymentMethod.create({
+      data: {
+        ownerId,
+        name: seed.accountName.includes('GCash') ? 'GCash' : seed.accountName.includes('Maya') ? 'Maya' : 'Default',
+        qrCodeUrl,
+        accountName: seed.accountName,
+        accountNumber: seed.accountNumber,
+        instructions: seed.instructions,
+        sortOrder: 0,
       },
-      include: { courts: true },
     });
 
     created.push({
-      clubId: club.id,
-      slug: club.slug,
-      courts: club.courts.map((court) => ({
+      ownerId,
+      courts: courts.map((court) => ({
         id: court.id,
         name: court.name,
         rate: Number(court.hourlyRate),
@@ -238,8 +216,8 @@ async function main() {
   const dayAfter = utcDate(2);
   const today = utcDate(0);
 
-  const courtOf = (club: (typeof created)[number], name: string) => {
-    const court = club.courts.find((candidate) => candidate.name === name);
+  const courtOf = (owner: (typeof created)[number], name: string) => {
+    const court = owner.courts.find((candidate) => candidate.name === name);
     if (!court) throw new Error(`Seed court missing: ${name}`);
     return court;
   };

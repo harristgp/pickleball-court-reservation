@@ -1,7 +1,7 @@
 // Pickleball Court Reservation SaaS — data model.
 //
-// Multi-tenancy: every Club belongs to exactly one OWNER user. Owners only ever
-// touch rows reachable from their own clubs; that boundary is enforced in
+// Multi-tenancy: every Court belongs to exactly one OWNER user. Owners only ever
+// touch rows reachable from their own courts; that boundary is enforced in
 // src/lib/session.ts, never by trusting an id from the client.
 
 generator client {
@@ -9,9 +9,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -39,50 +38,26 @@ model User {
   name         String
   phone        String?
   role         Role     @default(PLAYER)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 
-  clubs            Club[]           @relation("ClubOwner")
-  bookings         Booking[]
-  verifiedReceipts PaymentReceipt[] @relation("ReceiptVerifier")
-
-  @@index([role])
-}
-
-model Club {
-  id          String  @id @default(cuid())
-  ownerId     String
-  name        String
-  slug        String  @unique
-  description String  @db.Text
-  address     String
-  city        String
-  phone       String?
-  imageUrl    String?
-
-  /// Used by the Haversine proximity search in src/lib/geo.ts.
-  latitude  Float
-  longitude Float
-
-  /// SUPER_ADMIN kill switch for a tenant's SaaS access. false hides the club
-  /// from discovery and blocks new bookings; existing bookings are untouched.
+  /// SUPER_ADMIN kill switch for an owner's SaaS access. false hides the owner's
+  /// courts from discovery and blocks new bookings; existing bookings are untouched.
   isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  owner          User             @relation("ClubOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  courts         Court[]
-  paymentMethods PaymentMethod[]
+  courts           Court[]
+  paymentMethods   PaymentMethod[]
+  bookings         Booking[]
+  verifiedReceipts PaymentReceipt[] @relation("ReceiptVerifier")
 
-  @@index([ownerId])
+  @@index([role])
   @@index([isActive])
-  @@index([latitude, longitude])
 }
 
 model Court {
   id         String    @id @default(cuid())
-  clubId     String
+  ownerId    String
   name       String
   type       CourtType @default(OUTDOOR)
   hourlyRate Decimal   @db.Decimal(10, 2)
@@ -93,19 +68,25 @@ model Court {
   closeHour Int     @default(22)
   isActive  Boolean @default(true)
 
+  /// Used by the Haversine proximity search in src/lib/geo.ts.
+  latitude  Float?
+  longitude Float?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  club     Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   bookings Booking[]
 
-  @@unique([clubId, name])
-  @@index([clubId])
+  @@unique([ownerId, name])
+  @@index([ownerId])
+  @@index([isActive])
+  @@index([latitude, longitude])
 }
 
 model PaymentMethod {
   id            String  @id @default(cuid())
-  clubId        String
+  ownerId       String
   /// Display name: "GCash", "Maya", "BPI", etc.
   name          String
   accountName   String
@@ -119,10 +100,10 @@ model PaymentMethod {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  club    Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   bookings Booking[]
 
-  @@index([clubId])
+  @@index([ownerId])
 }
 
 model Booking {

@@ -32,11 +32,11 @@ export async function createBookingAction(_prev: ActionState, formData: FormData
 
   const court = await prisma.court.findUnique({
     where: { id: courtId },
-    include: { club: { select: { id: true, isActive: true, name: true } } },
+    include: { owner: { select: { id: true, isActive: true, name: true } } },
   });
 
   if (!court || !court.isActive) return { ok: false, message: 'That court is no longer available.' };
-  if (!court.club.isActive) return { ok: false, message: 'That club is not accepting bookings right now.' };
+  if (!court.owner.isActive) return { ok: false, message: 'That owner is not accepting bookings right now.' };
   if (hour < court.openHour || hour >= court.closeHour) {
     return { ok: false, message: 'That time is outside the court opening hours.' };
   }
@@ -44,7 +44,7 @@ export async function createBookingAction(_prev: ActionState, formData: FormData
 
   if (paymentMethodId) {
     const method = await prisma.paymentMethod.findFirst({
-      where: { id: paymentMethodId, clubId: court.club.id, isActive: true },
+      where: { id: paymentMethodId, ownerId: court.owner.id, isActive: true },
       select: { id: true },
     });
     if (!method) return { ok: false, message: 'Invalid payment method.' };
@@ -72,14 +72,12 @@ export async function createBookingAction(_prev: ActionState, formData: FormData
     bookingId = booking.id;
   } catch (error) {
     if (isSlotConflict(error)) {
-      revalidatePath(`/clubs/${court.club.id}`);
       return { ok: false, message: 'That slot was just taken. Pick another time.' };
     }
     logger.error('createBookingAction failed', { userId: user.id, courtId, error: sanitizeError(error) });
     throw error;
   }
 
-  revalidatePath(`/clubs/${court.club.id}`);
   revalidatePath('/dashboard');
   redirect(`/checkout/${bookingId}`);
 }
@@ -107,7 +105,7 @@ export async function uploadReceiptAction(_prev: ActionState, formData: FormData
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { receipt: true, court: { select: { clubId: true } } },
+    include: { receipt: true },
   });
 
   if (!booking || booking.playerId !== user.id) return { ok: false, message: 'Booking not found.' };
@@ -160,7 +158,7 @@ export async function uploadReceiptAction(_prev: ActionState, formData: FormData
   revalidatePath(`/checkout/${bookingId}`);
   revalidatePath('/dashboard');
   revalidatePath('/owner/verify');
-  return { ok: true, message: 'Receipt submitted. The club will verify your payment shortly.' };
+  return { ok: true, message: 'Receipt submitted. The owner will verify your payment shortly.' };
 }
 
 /** Player-side cancellation. Frees the slot by leaving the index predicate. */
@@ -170,12 +168,11 @@ export async function cancelBookingAction(_prev: ActionState, formData: FormData
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { court: { select: { clubId: true } } },
   });
   if (!booking || booking.playerId !== user.id) return { ok: false, message: 'Booking not found.' };
   if (booking.status === 'REJECTED') return { ok: false, message: 'That booking is already closed.' };
   if (booking.status === 'CONFIRMED') {
-    return { ok: false, message: 'Confirmed bookings must be cancelled by the club.' };
+    return { ok: false, message: 'Confirmed bookings must be cancelled by the owner.' };
   }
 
   await prisma.booking.update({
@@ -184,6 +181,5 @@ export async function cancelBookingAction(_prev: ActionState, formData: FormData
   });
 
   revalidatePath('/dashboard');
-  revalidatePath(`/clubs/${booking.court.clubId}`);
   return { ok: true, message: 'Booking cancelled.' };
 }

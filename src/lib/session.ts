@@ -48,32 +48,25 @@ export async function requireRole(roles: Role[], callbackUrl?: string): Promise<
 }
 
 /**
- * The club the signed-in owner administers.
- *
- * Owners are scoped to a single club in this build. Everything an owner can
- * read or mutate is reached through this club id rather than through an id
+ * The signed-in owner. Owners are scoped by their userId; everything an owner
+ * can read or mutate is reached through this id rather than through an id
  * supplied by the request, which is what keeps one tenant out of another
  * tenant's data.
  */
-export async function requireOwnedClub(callbackUrl?: string) {
+export async function requireOwner(callbackUrl?: string) {
   const user = await requireRole(['OWNER', 'SUPER_ADMIN'], callbackUrl);
-  const club = await prisma.club.findFirst({
-    where: { ownerId: user.id },
-    include: { paymentMethods: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
-    orderBy: { createdAt: 'asc' },
-  });
-  return { user, club };
+  return { userId: user.id, user };
 }
 
-/** Assert the signed-in owner owns the club this booking belongs to. */
+/** Assert the signed-in owner owns the court this booking belongs to. */
 export async function assertOwnsBooking(bookingId: string, userId: string, role: Role) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { court: { include: { club: true } }, receipt: true, player: true },
+    include: { court: true, receipt: true, player: true },
   });
   if (!booking) throw new Error('Booking not found.');
-  if (role !== 'SUPER_ADMIN' && booking.court.club.ownerId !== userId) {
-    throw new Error('That booking belongs to another club.');
+  if (role !== 'SUPER_ADMIN' && booking.court.ownerId !== userId) {
+    throw new Error('That booking belongs to another owner.');
   }
   return booking;
 }

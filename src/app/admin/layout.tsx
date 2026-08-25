@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { Building2, ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Users } from 'lucide-react';
 import { requireRole } from '@/lib/session';
 import { NavLink } from '@/components/layout/NavLink';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  await requireRole(['SUPER_ADMIN'], '/admin/clubs');
+  await requireRole(['SUPER_ADMIN'], '/admin/owners');
 
   return (
     <div className="space-y-6">
@@ -14,8 +14,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           Platform admin
         </h1>
         <nav className="flex gap-1">
-          <NavLink href="/admin/clubs" icon={<Building2 className="h-4 w-4" aria-hidden />}>
-            Clubs
+          <NavLink href="/admin/owners" icon={<Users className="h-4 w-4" aria-hidden />}>
+            Owners
           </NavLink>
         </nav>
       </div>

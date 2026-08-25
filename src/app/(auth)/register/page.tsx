@@ -15,7 +15,7 @@ export default async function RegisterPage() {
     <div className="mx-auto max-w-md py-8">
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Create your account</h1>
-        <p className="mt-1 text-sm text-zinc-500">Book courts as a player, or list your club as an owner.</p>
+        <p className="mt-1 text-sm text-zinc-500">Book courts as a player, or list your courts as an owner.</p>
       </div>
 
       <Card className="p-6">

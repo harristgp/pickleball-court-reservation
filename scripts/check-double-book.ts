@@ -21,7 +21,7 @@ function isSlotConflict(error: unknown): boolean {
 async function main() {
   const court = await prisma.court.findFirst({
     where: { isActive: true },
-    include: { club: true },
+    include: { owner: true },
   });
   const players = await prisma.user.findMany({ where: { role: 'PLAYER' }, take: CONCURRENCY });
 
@@ -38,7 +38,7 @@ async function main() {
   await prisma.paymentReceipt.deleteMany({ where: { booking: { courtId: court.id, startTime } } });
   await prisma.booking.deleteMany({ where: { courtId: court.id, startTime } });
 
-  console.log(`› Firing ${CONCURRENCY} concurrent bookings at ${court.club.name} / ${court.name}`);
+  console.log(`› Firing ${CONCURRENCY} concurrent bookings at ${court.owner.name} / ${court.name}`);
   console.log(`  ${startTime.toISOString()} → ${endTime.toISOString()}\n`);
 
   const results = await Promise.allSettled(

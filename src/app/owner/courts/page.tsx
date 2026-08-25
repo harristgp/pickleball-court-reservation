@@ -1,26 +1,18 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
-import { requireOwnedClub } from '@/lib/session';
+import { requireOwner } from '@/lib/session';
 import { decimalToNumber } from '@/lib/money';
-import { Card, CardHeader, EmptyState } from '@/components/ui';
+import { Card, CardHeader } from '@/components/ui';
 import { CourtManager, type CourtRow } from '@/components/owner/CourtManager';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Courts' };
 
 export default async function OwnerCourtsPage() {
-  const { club } = await requireOwnedClub('/owner/courts');
-
-  if (!club) {
-    return (
-      <Card className="p-6">
-        <EmptyState title="No club assigned" description="Court management unlocks once your club is provisioned." />
-      </Card>
-    );
-  }
+  const { userId } = await requireOwner('/owner/courts');
 
   const courts = await prisma.court.findMany({
-    where: { clubId: club.id },
+    where: { ownerId: userId },
     include: { _count: { select: { bookings: true } } },
     orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
   });

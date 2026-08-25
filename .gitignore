@@ -13,3 +13,7 @@ tsconfig.tsbuildinfo
 /public/uploads/receipts/*
 !/public/uploads/qr/.gitkeep
 !/public/uploads/receipts/.gitkeep
+.prisma/
+
+.vercel
+.env*

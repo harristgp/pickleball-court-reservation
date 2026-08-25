@@ -19,7 +19,7 @@ export default async function LoginPage({
     <div className="mx-auto max-w-md py-8">
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Welcome back</h1>
-        <p className="mt-1 text-sm text-zinc-500">Sign in to book a court or manage your club.</p>
+        <p className="mt-1 text-sm text-zinc-500">Sign in to book a court or manage your courts.</p>
       </div>
 
       <Card className="p-6">
@@ -29,9 +29,9 @@ export default async function LoginPage({
       <div className="mt-6 rounded-lg border border-dashed border-zinc-300 bg-white p-4 text-xs text-zinc-600">
         <p className="font-semibold text-zinc-700">Demo accounts (password: password123)</p>
         <ul className="mt-2 space-y-1 font-mono">
-          <li>admin@dinkcourt.test — super admin</li>
-          <li>owner@smashcity.test — club owner</li>
-          <li>player@dinkcourt.test — player</li>
+          <li>admin@pcourt.test — super admin</li>
+          <li>owner@smashcity.test — court owner</li>
+          <li>player@pcourt.test — player</li>
         </ul>
       </div>
     </div>

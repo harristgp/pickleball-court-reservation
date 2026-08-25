@@ -54,14 +54,14 @@ export function RegisterForm() {
         <Input id="email" name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
       </Field>
 
-      <Field label="Mobile number" htmlFor="phone" hint="Optional. Clubs use it to reach you about a booking." error={state.fieldErrors?.phone}>
+      <Field label="Mobile number" htmlFor="phone" hint="Optional. Owners use it to reach you about a booking." error={state.fieldErrors?.phone}>
         <Input id="phone" name="phone" autoComplete="tel" placeholder="+63 917 000 0000" />
       </Field>
 
       <Field label="I am a" htmlFor="role" error={state.fieldErrors?.role}>
         <Select id="role" name="role" defaultValue="PLAYER">
           <option value="PLAYER">Player looking for courts</option>
-          <option value="OWNER">Club owner listing courts</option>
+          <option value="OWNER">Court owner listing courts</option>
         </Select>
       </Field>
 
