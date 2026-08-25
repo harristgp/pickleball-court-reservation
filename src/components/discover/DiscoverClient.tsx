@@ -1,12 +1,17 @@
 'use client';
 
 import { useCallback, useMemo, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { Crosshair, Loader2, MapPinOff, SearchX, SlidersHorizontal } from 'lucide-react';
 import { Alert, Badge, Button, EmptyState, Input, Select } from '@/components/ui';
 import { OwnerCard } from '@/components/discover/OwnerCard';
-import { CourtMap } from '@/components/map/CourtMap';
 import { RADIUS_OPTIONS } from '@/lib/validators';
 import type { NearbyCourt } from '@/lib/types';
+
+const CourtMap = dynamic(() => import('@/components/map/CourtMap').then((m) => m.CourtMap), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse bg-zinc-100" />,
+});
 
 type CourtFilter = 'ALL' | 'INDOOR' | 'OUTDOOR';
 
