@@ -23,7 +23,7 @@ export function ruleForPath(pathname: string) {
 
 /** Where a signed-in user belongs after login when no callbackUrl was given. */
 export function homePathForRole(role: Role): string {
-  if (role === 'SUPER_ADMIN') return '/admin/clubs';
+  if (role === 'SUPER_ADMIN') return '/admin/owners';
   if (role === 'OWNER') return '/owner';
   return '/dashboard';
 }
