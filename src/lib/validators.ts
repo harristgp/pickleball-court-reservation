@@ -6,6 +6,29 @@ export type RadiusOption = (typeof RADIUS_OPTIONS)[number];
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5MB
 export const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
+/** Magic bytes for validating actual file content, not just MIME type. */
+const MAGIC_BYTES: Record<string, number[]> = {
+  'image/png': [0x89, 0x50, 0x4e, 0x47], // PNG: 89 50 4e 47
+  'image/jpeg': [0xff, 0xd8, 0xff], // JPEG: ff d8 ff
+  'image/webp': [0x52, 0x49, 0x46, 0x46], // RIFF header (WebP)
+};
+
+async function validateMagicBytes(file: File): Promise<boolean> {
+  try {
+    const buffer = await file.slice(0, 16).arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    
+    for (const [mimeType, expected] of Object.entries(MAGIC_BYTES)) {
+      if (file.type === mimeType) {
+        return expected.every((byte, i) => bytes[i] === byte);
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const dateKeySchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a YYYY-MM-DD date')
@@ -19,7 +42,8 @@ export const imageFileSchema = z
   .refine(
     (file) => (ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type),
     'Image must be a PNG, JPEG, or WebP',
-  );
+  )
+  .refine(async (file) => validateMagicBytes(file), 'File content does not match its extension');
 
 export const registerSchema = z
   .object({

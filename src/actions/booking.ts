@@ -9,6 +9,7 @@ import { requireUser } from '@/lib/session';
 import { dateKeyToUtcMidnight, isSlotInPast, slotEnd, slotStart } from '@/lib/dates';
 import { holdExpiryFrom, isSlotConflict, releaseExpiredHolds } from '@/lib/slots';
 import { createBookingSchema, uploadReceiptSchema } from '@/lib/validators';
+import { logger, sanitizeError } from '@/lib/logger';
 import type { ActionState } from '@/lib/types';
 
 /**
@@ -74,6 +75,7 @@ export async function createBookingAction(_prev: ActionState, formData: FormData
       revalidatePath(`/clubs/${court.club.id}`);
       return { ok: false, message: 'That slot was just taken. Pick another time.' };
     }
+    logger.error('createBookingAction failed', { userId: user.id, courtId, error: sanitizeError(error) });
     throw error;
   }
 
@@ -117,35 +119,38 @@ export async function uploadReceiptAction(_prev: ActionState, formData: FormData
   const stored = await storage.put(screenshot, 'receipts');
   const previousUrl = booking.receipt?.screenshotUrl;
 
-  await prisma.$transaction([
-    prisma.paymentReceipt.upsert({
-      where: { bookingId },
-      create: {
-        bookingId,
-        screenshotUrl: stored.url,
-        referenceNumber: referenceNumber || null,
-        amountClaimed: amountClaimed !== undefined ? new Prisma.Decimal(amountClaimed) : null,
-      },
-      update: {
-        screenshotUrl: stored.url,
-        referenceNumber: referenceNumber || null,
-        amountClaimed: amountClaimed !== undefined ? new Prisma.Decimal(amountClaimed) : null,
-        uploadedAt: new Date(),
-        verifiedAt: null,
-        verifiedById: null,
-        rejectionReason: null,
-      },
-    }),
-    prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: 'PENDING_VERIFICATION',
-        // The hold no longer matters once the club has proof to review; push it
-        // out so the sweeper cannot reclaim a slot that is awaiting a decision.
-        expiresAt: new Date(booking.endTime),
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.paymentReceipt.upsert({
+        where: { bookingId },
+        create: {
+          bookingId,
+          screenshotUrl: stored.url,
+          referenceNumber: referenceNumber || null,
+          amountClaimed: amountClaimed !== undefined ? new Prisma.Decimal(amountClaimed) : null,
+        },
+        update: {
+          screenshotUrl: stored.url,
+          referenceNumber: referenceNumber || null,
+          amountClaimed: amountClaimed !== undefined ? new Prisma.Decimal(amountClaimed) : null,
+          uploadedAt: new Date(),
+          verifiedAt: null,
+          verifiedById: null,
+          rejectionReason: null,
+        },
+      }),
+      prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: 'PENDING_VERIFICATION',
+          expiresAt: new Date(booking.endTime),
+        },
+      }),
+    ]);
+  } catch (error) {
+    logger.error('uploadReceiptAction transaction failed', { bookingId, userId: user.id, error: sanitizeError(error) });
+    return { ok: false, message: 'Failed to save receipt. Please try again.' };
+  }
 
   // Best-effort cleanup of the replaced image; never block the workflow on it.
   if (previousUrl && previousUrl !== stored.url) {

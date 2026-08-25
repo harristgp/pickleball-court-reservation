@@ -12,6 +12,7 @@ import {
   paymentMethodSchema,
   verifyBookingSchema,
 } from '@/lib/validators';
+import { logger, sanitizeError } from '@/lib/logger';
 import type { ActionState } from '@/lib/types';
 
 /**
@@ -37,22 +38,25 @@ export async function verifyBookingAction(_prev: ActionState, formData: FormData
     return { ok: false, fieldErrors: { rejectionReason: ['Tell the player why the payment was rejected.'] } };
   }
 
-  await prisma.$transaction([
-    prisma.booking.update({
-      where: { id: bookingId },
-      // REJECTED leaves the partial unique index, so the hour is immediately
-      // bookable by someone else. No separate slot-release step exists.
-      data: { status: decision === 'APPROVE' ? 'CONFIRMED' : 'REJECTED' },
-    }),
-    prisma.paymentReceipt.update({
-      where: { bookingId },
-      data: {
-        verifiedAt: new Date(),
-        verifiedById: user.id,
-        rejectionReason: decision === 'REJECT' ? rejectionReason || null : null,
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.booking.update({
+        where: { id: bookingId },
+        data: { status: decision === 'APPROVE' ? 'CONFIRMED' : 'REJECTED' },
+      }),
+      prisma.paymentReceipt.update({
+        where: { bookingId },
+        data: {
+          verifiedAt: new Date(),
+          verifiedById: user.id,
+          rejectionReason: decision === 'REJECT' ? rejectionReason || null : null,
+        },
+      }),
+    ]);
+  } catch (error) {
+    logger.error('verifyBookingAction transaction failed', { bookingId, userId: user.id, error: sanitizeError(error) });
+    return { ok: false, message: 'Failed to update booking. Please try again.' };
+  }
 
   revalidatePath('/owner/verify');
   revalidatePath('/owner');
@@ -168,7 +172,12 @@ export async function savePaymentMethodAction(_prev: ActionState, formData: Form
   }
 
   if (qrCode) {
-    qrCodeUrl = (await storage.put(qrCode, 'qr')).url;
+    try {
+      qrCodeUrl = (await storage.put(qrCode, 'qr')).url;
+    } catch (error) {
+      logger.error('QR upload failed', { clubId: club.id, error: sanitizeError(error) });
+      return { ok: false, message: 'Failed to upload QR code. Please try again.' };
+    }
   }
 
   const data = {
@@ -179,16 +188,21 @@ export async function savePaymentMethodAction(_prev: ActionState, formData: Form
     qrCodeUrl,
   };
 
-  if (id) {
-    await prisma.paymentMethod.update({ where: { id }, data });
-  } else {
-    const maxSort = await prisma.paymentMethod.aggregate({
-      where: { clubId: club.id },
-      _max: { sortOrder: true },
-    });
-    await prisma.paymentMethod.create({
-      data: { ...data, clubId: club.id, sortOrder: (maxSort._max.sortOrder ?? -1) + 1 },
-    });
+  try {
+    if (id) {
+      await prisma.paymentMethod.update({ where: { id }, data });
+    } else {
+      const maxSort = await prisma.paymentMethod.aggregate({
+        where: { clubId: club.id },
+        _max: { sortOrder: true },
+      });
+      await prisma.paymentMethod.create({
+        data: { ...data, clubId: club.id, sortOrder: (maxSort._max.sortOrder ?? -1) + 1 },
+      });
+    }
+  } catch (error) {
+    logger.error('savePaymentMethodAction db failed', { clubId: club.id, paymentMethodId: id, error: sanitizeError(error) });
+    return { ok: false, message: 'Failed to save payment method. Please try again.' };
   }
 
   if (qrCode && previousUrl && previousUrl !== qrCodeUrl) {
@@ -215,10 +229,15 @@ export async function deletePaymentMethodAction(_prev: ActionState, formData: Fo
   });
   if (!method) return { ok: false, message: 'Payment method not found.' };
 
-  await prisma.paymentMethod.update({
-    where: { id: method.id },
-    data: { isActive: false },
-  });
+  try {
+    await prisma.paymentMethod.update({
+      where: { id: method.id },
+      data: { isActive: false },
+    });
+  } catch (error) {
+    logger.error('deletePaymentMethodAction db failed', { clubId: club.id, paymentMethodId: method.id, error: sanitizeError(error) });
+    return { ok: false, message: 'Failed to delete payment method. Please try again.' };
+  }
 
   revalidatePath('/owner/settings');
   return { ok: true, message: 'Payment method removed.' };
@@ -256,12 +275,17 @@ export async function saveCourtAction(_prev: ActionState, formData: FormData): P
     isActive,
   };
 
-  if (id) {
-    const owned = await prisma.court.findFirst({ where: { id, clubId: club.id }, select: { id: true } });
-    if (!owned) return { ok: false, message: 'That court belongs to another club.' };
-    await prisma.court.update({ where: { id }, data });
-  } else {
-    await prisma.court.create({ data: { ...data, clubId: club.id } });
+  try {
+    if (id) {
+      const owned = await prisma.court.findFirst({ where: { id, clubId: club.id }, select: { id: true } });
+      if (!owned) return { ok: false, message: 'That court belongs to another club.' };
+      await prisma.court.update({ where: { id }, data });
+    } else {
+      await prisma.court.create({ data: { ...data, clubId: club.id } });
+    }
+  } catch (error) {
+    logger.error('saveCourtAction db failed', { clubId: club.id, courtId: id, error: sanitizeError(error) });
+    return { ok: false, message: 'Failed to save court. Please try again.' };
   }
 
   revalidatePath('/owner/courts');
@@ -285,13 +309,18 @@ export async function deleteCourtAction(_prev: ActionState, formData: FormData):
   });
   if (!court) return { ok: false, message: 'Court not found.' };
 
-  if (court._count.bookings > 0) {
-    await prisma.court.update({ where: { id: courtId }, data: { isActive: false } });
-    revalidatePath('/owner/courts');
-    return { ok: true, message: 'Court has bookings, so it was deactivated instead of deleted.' };
-  }
+  try {
+    if (court._count.bookings > 0) {
+      await prisma.court.update({ where: { id: courtId }, data: { isActive: false } });
+      revalidatePath('/owner/courts');
+      return { ok: true, message: 'Court has bookings, so it was deactivated instead of deleted.' };
+    }
 
-  await prisma.court.delete({ where: { id: courtId } });
+    await prisma.court.delete({ where: { id: courtId } });
+  } catch (error) {
+    logger.error('deleteCourtAction db failed', { clubId: club.id, courtId, error: sanitizeError(error) });
+    return { ok: false, message: 'Failed to delete court. Please try again.' };
+  }
   revalidatePath('/owner/courts');
   revalidatePath(`/clubs/${club.id}`);
   return { ok: true, message: 'Court deleted.' };
