@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dinkcourt-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "dinkclub-lite",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:/Users/4Ps/pickleball-reservations-vercel", "run", "dev", "--", "--port", "3100"],
+      "port": 3100
+    }
+  ]
+}

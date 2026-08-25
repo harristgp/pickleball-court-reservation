@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-zinc-50 text-zinc-900 antialiased;
+  }
+
+  /* The date strip and court grid scroll horizontally on small screens. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(212 212 216) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-zinc-300;
+  }
+}
+
+@layer components {
+  /* Leaflet ships opinionated defaults; soften them to match the Tailwind theme. */
+  .leaflet-container {
+    @apply h-full w-full rounded-xl font-sans;
+    background: #f4f4f5;
+  }
+
+  .leaflet-popup-content-wrapper {
+    @apply rounded-xl p-0 shadow-card;
+  }
+
+  .leaflet-popup-content {
+    @apply m-0 w-56 p-0;
+  }
+
+  .leaflet-popup-tip {
+    @apply shadow-none;
+  }
+
+  .leaflet-control-attribution {
+    @apply rounded-tl-lg text-[10px] text-zinc-500;
+  }
+
+  .leaflet-bar a {
+    @apply text-zinc-700;
+  }
+}
