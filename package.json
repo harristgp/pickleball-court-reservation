@@ -51,6 +51,9 @@
   },
   "allowScripts": {
     "@prisma/engines@5.22.0": true,
+    "@prisma/client@5.22.0": true,
+    "prisma@5.22.0": true,
+    "unrs-resolver@1.12.2": true,
     "esbuild@0.23.1": true
   }
 }
