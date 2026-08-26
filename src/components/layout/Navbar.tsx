@@ -20,8 +20,8 @@ export async function Navbar() {
         </Link>
 
         <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-          <NavLink href="/discover" icon={<MapPin className="h-4 w-4" />}>
-            Discover
+          <NavLink href="/browse" icon={<MapPin className="h-4 w-4" />}>
+            Browse
           </NavLink>
 
           {user && (

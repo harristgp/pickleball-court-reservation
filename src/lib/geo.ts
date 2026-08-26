@@ -20,6 +20,7 @@ interface NearbyRow {
   hasIndoor: boolean;
   hasOutdoor: boolean;
   distanceKm: number;
+  photos: string[];
 }
 
 /**
@@ -69,6 +70,7 @@ export async function findNearbyFacilities(
         f.address,
         f.latitude,
         f.longitude,
+        f.photos,
         (SELECT MIN(c."hourlyRate") FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true) AS "minRate",
         (SELECT MAX(c."hourlyRate") FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true) AS "maxRate",
         (SELECT COUNT(*)::int FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true) AS "courtCount",
@@ -95,8 +97,88 @@ export async function findNearbyFacilities(
   return rows.map(serialiseRow);
 }
 
-/** Every active facility, unsorted by distance — the pre-geolocation view. */
-export async function listActiveFacilities(): Promise<FacilitySummary[]> {
+/** Paginated list of active facilities for the browse page. */
+export async function listActiveFacilities({
+  page = 1,
+  pageSize = 12,
+  search,
+  courtType,
+}: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  courtType?: 'ALL' | 'INDOOR' | 'OUTDOOR';
+} = {}): Promise<{ facilities: FacilitySummary[]; total: number }> {
+  const where: {
+    isActive: boolean;
+    owner?: { isActive: boolean };
+    courts?: { some: { isActive: boolean; type?: 'INDOOR' | 'OUTDOOR' } };
+    OR?: Record<string, unknown>[];
+  } = {
+    isActive: true,
+    owner: { isActive: true },
+    courts: { some: { isActive: true } },
+  };
+
+  if (search) {
+    const needle = search.trim();
+    where.OR = [
+      { name: { contains: needle, mode: 'insensitive' } },
+      { city: { contains: needle, mode: 'insensitive' } },
+      { address: { contains: needle, mode: 'insensitive' } },
+      { owner: { name: { contains: needle, mode: 'insensitive' } } },
+    ];
+  }
+
+  if (courtType === 'INDOOR') {
+    where.courts = { some: { isActive: true, type: 'INDOOR' } };
+  } else if (courtType === 'OUTDOOR') {
+    where.courts = { some: { isActive: true, type: 'OUTDOOR' } };
+  }
+
+  const [total, facilities] = await Promise.all([
+    prisma.facility.count({ where }),
+    prisma.facility.findMany({
+      where,
+      include: {
+        owner: { select: { id: true, name: true } },
+        courts: {
+          where: { isActive: true },
+          select: { type: true, hourlyRate: true },
+        },
+      },
+      orderBy: { name: 'asc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
+
+  return {
+    total,
+    facilities: facilities.map((facility) => {
+      const rates = facility.courts.map((c) => c.hourlyRate.toNumber());
+      return {
+        id: facility.id,
+        name: facility.name,
+        ownerId: facility.owner.id,
+        ownerName: facility.owner.name,
+        city: facility.city,
+        address: facility.address,
+        latitude: facility.latitude ?? 0,
+        longitude: facility.longitude ?? 0,
+        minRate: rates.length ? Math.min(...rates) : null,
+        maxRate: rates.length ? Math.max(...rates) : null,
+        courtCount: facility.courts.length,
+        hasIndoor: facility.courts.some((c) => c.type === 'INDOOR'),
+        hasOutdoor: facility.courts.some((c) => c.type === 'OUTDOOR'),
+        photos: facility.photos,
+      };
+    }),
+  };
+}
+
+/** All active facilities (no pagination) — used by the discover page and nearby search. */
+export async function listAllActiveFacilities(): Promise<FacilitySummary[]> {
   const facilities = await prisma.facility.findMany({
     where: { isActive: true, owner: { isActive: true } },
     include: {
@@ -127,6 +209,7 @@ export async function listActiveFacilities(): Promise<FacilitySummary[]> {
         courtCount: facility.courts.length,
         hasIndoor: facility.courts.some((c) => c.type === 'INDOOR'),
         hasOutdoor: facility.courts.some((c) => c.type === 'OUTDOOR'),
+        photos: facility.photos,
       };
     });
 }
@@ -149,6 +232,7 @@ function serialiseRow(row: NearbyRow): FacilitySummary {
     courtCount: Number(row.courtCount),
     hasIndoor: row.hasIndoor,
     hasOutdoor: row.hasOutdoor,
+    photos: row.photos ?? [],
     distanceKm: Number(row.distanceKm),
   };
 }

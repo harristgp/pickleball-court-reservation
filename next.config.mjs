@@ -13,6 +13,11 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.supabase.co' },
     ],
   },
+  async redirects() {
+    return [
+      { source: '/discover', destination: '/browse', permanent: false },
+    ];
+  },
   headers: async () => [
     {
       source: '/(.*)',

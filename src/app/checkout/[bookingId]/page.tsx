@@ -75,7 +75,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ booki
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <Link
-        href="/discover"
+        href="/browse"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-800"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />

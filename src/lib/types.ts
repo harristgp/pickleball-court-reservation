@@ -45,6 +45,7 @@ export interface FacilitySummary {
   courtCount: number;
   hasIndoor: boolean;
   hasOutdoor: boolean;
+  photos: string[];
   distanceKm?: number;
 }
 

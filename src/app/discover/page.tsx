@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { listActiveFacilities } from '@/lib/geo';
+import { listAllActiveFacilities } from '@/lib/geo';
 import { DiscoverClient } from '@/components/discover/DiscoverClient';
 
 export const metadata: Metadata = {
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function DiscoverPage() {
-  const facilities = await listActiveFacilities();
+  const facilities = await listAllActiveFacilities();
 
   return (
     <div className="space-y-6">

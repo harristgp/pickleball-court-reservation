@@ -47,7 +47,7 @@ export default async function HomePage() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/discover"
+            href="/browse"
             className="rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-400"
           >
             Find courts near me

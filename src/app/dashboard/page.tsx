@@ -57,7 +57,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900">My bookings</h1>
           <p className="mt-1 text-sm text-zinc-500">Hi {user.name || user.email} — here is everything you booked.</p>
         </div>
-        <Link href="/discover">
+        <Link href="/browse">
           <Button variant="secondary">
             <CalendarSearch className="h-4 w-4" aria-hidden />
             Find a facility
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
             title="No bookings yet"
             description="Find a facility near you and grab a slot."
             action={
-              <Link href="/discover">
+              <Link href="/browse">
                 <Button>Browse facilities</Button>
               </Link>
             }
@@ -171,7 +171,7 @@ function GroupCard({
             </Button>
           </Link>
         ) : (
-          <Link href="/discover">
+          <Link href="/browse">
             <Button size="sm" variant="ghost">
               Book again
             </Button>
