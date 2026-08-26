@@ -10,8 +10,9 @@ export const metadata: Metadata = { title: 'Sign in' };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { callbackUrl?: string };
+  searchParams: Promise<{ callbackUrl?: string }>;
 }) {
+  const { callbackUrl } = await searchParams;
   const user = await getCurrentUser();
   if (user) redirect(homePathForRole(user.role));
 
@@ -23,7 +24,7 @@ export default async function LoginPage({
       </div>
 
       <Card className="p-6">
-        <LoginForm callbackUrl={searchParams.callbackUrl} />
+        <LoginForm callbackUrl={callbackUrl} />
       </Card>
 
       <div className="mt-6 rounded-lg border border-dashed border-zinc-300 bg-white p-4 text-xs text-zinc-600">

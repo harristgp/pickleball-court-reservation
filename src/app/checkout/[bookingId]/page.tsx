@@ -18,13 +18,14 @@ import { CancelBookingButton } from '@/components/checkout/CancelBookingButton';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Submit payment' };
 
-export default async function CheckoutPage({ params }: { params: { bookingId: string } }) {
-  const user = await requireUser(`/checkout/${params.bookingId}`);
+export default async function CheckoutPage({ params }: { params: Promise<{ bookingId: string }> }) {
+  const { bookingId } = await params;
+  const user = await requireUser(`/checkout/${bookingId}`);
 
   await releaseExpiredHolds(prisma);
 
   const group = await prisma.bookingGroup.findUnique({
-    where: { id: params.bookingId },
+    where: { id: bookingId },
     include: {
       receipt: true,
       facility: {

@@ -7,11 +7,12 @@ import { FacilityCourtManager } from '@/components/owner/FacilityCourtManager';
 
 export const metadata: Metadata = { title: 'Edit Facility' };
 
-export default async function EditFacilityPage({ params }: { params: { id: string } }) {
+export default async function EditFacilityPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const { userId } = await requireOwner('/owner/facilities');
 
   const facility = await prisma.facility.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       courts: {
         orderBy: { name: 'asc' },

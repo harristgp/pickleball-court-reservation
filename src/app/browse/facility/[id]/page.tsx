@@ -11,9 +11,10 @@ import { MultiCourtGrid } from '@/components/booking/MultiCourtGrid';
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
   const facility = await prisma.facility.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { name: true, city: true },
   });
   return facility ? { title: `${facility.name} — ${facility.city}` } : { title: 'Facility not found' };
@@ -23,11 +24,14 @@ export default async function FacilityPage({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams: { date?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
+  const { id } = await params;
+  const { date } = await searchParams;
+
   const facility = await prisma.facility.findUnique({
-    where: { id: params.id, isActive: true },
+    where: { id, isActive: true },
     include: {
       owner: { select: { id: true, name: true } },
       courts: {
@@ -48,7 +52,7 @@ export default async function FacilityPage({
   if (!facility) notFound();
 
   const user = await getCurrentUser();
-  const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date ?? '') ? searchParams.date! : todayKey();
+  const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? date! : todayKey();
 
   const courts = await getFacilityAvailability({ facilityId: facility.id, dateKey, viewerId: user?.id });
   const rates = facility.courts.map((c) => c.hourlyRate.toNumber());
