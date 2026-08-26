@@ -1,9 +1,3 @@
-// Pickleball Court Reservation SaaS — data model.
-//
-// Multi-tenancy: every Court belongs to exactly one OWNER user. Owners only ever
-// touch rows reachable from their own courts; that boundary is enforced in
-// src/lib/session.ts, never by trusting an id from the client.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,6 +5,163 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Facility {
+  id           String         @id @default(cuid())
+  ownerId      String
+  name         String
+  description  String?
+  address      String         @default("")
+  city         String         @default("")
+  latitude     Float?
+  longitude    Float?
+  photos       String[]       @default([])
+  openHour     Int            @default(6)
+  closeHour    Int            @default(22)
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  courts       Court[]
+  groups       BookingGroup[]
+  owner        User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([isActive])
+  @@index([latitude, longitude])
+}
+
+model Court {
+  id         String    @id @default(cuid())
+  facilityId String
+  name       String
+  type       CourtType @default(OUTDOOR)
+  hourlyRate Decimal   @db.Decimal(10, 2)
+  openHour   Int       @default(6)
+  closeHour  Int       @default(22)
+  isActive   Boolean   @default(true)
+  latitude   Float?
+  longitude  Float?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  bookings   Booking[]
+  facility   Facility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@unique([facilityId, name])
+  @@index([facilityId])
+  @@index([isActive])
+  @@index([latitude, longitude])
+}
+
+/// Groups multiple Booking records into a single checkout transaction.
+/// A player selecting 3 hours across 2 courts creates 1 BookingGroup + 3 Bookings.
+model BookingGroup {
+  id              String           @id @default(cuid())
+  playerId        String
+  facilityId      String?
+  totalPrice      Decimal          @db.Decimal(10, 2)
+  status          BookingStatus    @default(PENDING_PAYMENT)
+  /// A PENDING_PAYMENT group holds its slots only until this instant.
+  expiresAt       DateTime
+  notes           String?
+  paymentMethodId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  bookings        Booking[]
+  facility        Facility?        @relation(fields: [facilityId], references: [id])
+  paymentMethod   PaymentMethod?   @relation(fields: [paymentMethodId], references: [id])
+  player          User             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  receipt         PaymentReceipt?
+
+  @@index([playerId, createdAt])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([paymentMethodId])
+}
+
+model Booking {
+  id        String         @id @default(cuid())
+  groupId   String?
+  playerId  String
+  courtId   String
+  /// Calendar day of the slot, used for the day-grid lookup.
+  date      DateTime       @db.Date
+  /// Exact slot boundaries. startTime is the slot key enforced by the partial
+  /// unique index `booking_active_slot_unique`.
+  startTime DateTime
+  endTime   DateTime
+  /// Price for this individual slot (court's hourlyRate at time of booking).
+  totalPrice Decimal       @db.Decimal(10, 2)
+  status     BookingStatus @default(PENDING_PAYMENT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  player  User           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  court   Court          @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  group   BookingGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([courtId, date])
+  @@index([playerId, createdAt])
+  @@index([status])
+  @@index([groupId])
+}
+
+model PaymentReceipt {
+  id              String        @id @default(cuid())
+  groupId         String        @unique
+  /// Public URL produced by the active storage driver (see src/lib/storage).
+  screenshotUrl   String
+  referenceNumber String?
+  amountClaimed   Decimal?      @db.Decimal(10, 2)
+  uploadedAt      DateTime      @default(now())
+  verifiedAt      DateTime?
+  verifiedById    String?
+  rejectionReason String?
+  group           BookingGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  verifiedBy      User?         @relation("ReceiptVerifier", fields: [verifiedById], references: [id])
+
+  @@index([verifiedById])
+}
+
+model PaymentMethod {
+  id            String         @id @default(cuid())
+  /// Display name: "GCash", "Maya", "BPI", etc.
+  name          String
+  accountName   String
+  accountNumber String?
+  /// Public URL produced by the active storage driver (see src/lib/storage).
+  qrCodeUrl     String?
+  instructions  String
+  isActive      Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  ownerId       String
+  groups        BookingGroup[]
+  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+}
+
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  passwordHash   String
+  name           String
+  phone          String?
+  role           Role             @default(PLAYER)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  isActive       Boolean          @default(true)
+  booking        Booking[]
+  bookingGroup   BookingGroup[]
+  facilities     Facility[]
+  paymentMethods PaymentMethod[]
+  verifiedReceipts PaymentReceipt[] @relation("ReceiptVerifier")
+
+  @@index([isActive])
+  @@index([role])
 }
 
 enum Role {
@@ -29,139 +180,4 @@ enum BookingStatus {
   PENDING_VERIFICATION
   CONFIRMED
   REJECTED
-}
-
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  phone        String?
-  role         Role     @default(PLAYER)
-
-  /// SUPER_ADMIN kill switch for an owner's SaaS access. false hides the owner's
-  /// courts from discovery and blocks new bookings; existing bookings are untouched.
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  courts           Court[]
-  paymentMethods   PaymentMethod[]
-  bookings         Booking[]
-  verifiedReceipts PaymentReceipt[] @relation("ReceiptVerifier")
-
-  @@index([role])
-  @@index([isActive])
-}
-
-model Court {
-  id         String    @id @default(cuid())
-  ownerId    String
-  name       String
-  type       CourtType @default(OUTDOOR)
-  hourlyRate Decimal   @db.Decimal(10, 2)
-
-  /// Inclusive first bookable hour and exclusive last bookable hour, 0-24.
-  /// A court with openHour 6 / closeHour 22 offers slots 06:00 through 21:00.
-  openHour  Int     @default(6)
-  closeHour Int     @default(22)
-  isActive  Boolean @default(true)
-
-  /// Used by the Haversine proximity search in src/lib/geo.ts.
-  latitude  Float?
-  longitude Float?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  bookings Booking[]
-
-  @@unique([ownerId, name])
-  @@index([ownerId])
-  @@index([isActive])
-  @@index([latitude, longitude])
-}
-
-model PaymentMethod {
-  id            String  @id @default(cuid())
-  ownerId       String
-  /// Display name: "GCash", "Maya", "BPI", etc.
-  name          String
-  accountName   String
-  accountNumber String?
-  /// Public URL produced by the active storage driver (see src/lib/storage).
-  qrCodeUrl     String?
-  instructions  String  @db.Text
-  isActive      Boolean @default(true)
-  sortOrder     Int     @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  bookings Booking[]
-
-  @@index([ownerId])
-}
-
-model Booking {
-  id       String @id @default(cuid())
-  playerId String
-  courtId  String
-
-  /// Calendar day of the slot, used for the day-grid lookup.
-  date DateTime @db.Date
-
-  /// Exact slot boundaries. startTime is the slot key enforced by the partial
-  /// unique index `booking_active_slot_unique` (see migration 20240102000000).
-  startTime DateTime
-  endTime   DateTime
-
-  totalPrice Decimal       @db.Decimal(10, 2)
-  status     BookingStatus @default(PENDING_PAYMENT)
-
-  /// A PENDING_PAYMENT booking holds the slot only until this instant. Expired
-  /// holds are swept to REJECTED by releaseExpiredHolds() in src/lib/slots.ts.
-  expiresAt DateTime
-
-  notes String? @db.Text
-
-  /// Which payment method the player selected at checkout, if any.
-  paymentMethodId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  player        User            @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  court         Court           @relation(fields: [courtId], references: [id], onDelete: Cascade)
-  receipt       PaymentReceipt?
-  paymentMethod PaymentMethod?  @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
-
-  @@index([courtId, date])
-  @@index([playerId, createdAt])
-  @@index([status])
-  @@index([expiresAt])
-  @@index([paymentMethodId])
-}
-
-model PaymentReceipt {
-  id       String @id @default(cuid())
-  bookingId String @unique
-
-  /// Public URL produced by the active storage driver (see src/lib/storage).
-  screenshotUrl   String
-  referenceNumber String?
-  amountClaimed   Decimal? @db.Decimal(10, 2)
-
-  uploadedAt      DateTime  @default(now())
-  verifiedAt      DateTime?
-  verifiedById    String?
-  rejectionReason String?   @db.Text
-
-  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  verifiedBy User?   @relation("ReceiptVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
-
-  @@index([verifiedById])
 }

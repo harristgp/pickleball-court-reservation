@@ -6,7 +6,7 @@ import { Crosshair, Loader2, MapPinOff, SearchX, SlidersHorizontal } from 'lucid
 import { Alert, Badge, Button, EmptyState, Input, Select } from '@/components/ui';
 import { OwnerCard } from '@/components/discover/OwnerCard';
 import { RADIUS_OPTIONS } from '@/lib/validators';
-import type { NearbyCourt } from '@/lib/types';
+import type { FacilitySummary } from '@/lib/types';
 
 const CourtMap = dynamic(() => import('@/components/map/CourtMap').then((m) => m.CourtMap), {
   ssr: false,
@@ -15,8 +15,8 @@ const CourtMap = dynamic(() => import('@/components/map/CourtMap').then((m) => m
 
 type CourtFilter = 'ALL' | 'INDOOR' | 'OUTDOOR';
 
-export function DiscoverClient({ initialCourts }: { initialCourts: NearbyCourt[] }) {
-  const [courts, setCourts] = useState(initialCourts);
+export function DiscoverClient({ initialFacilities }: { initialFacilities: FacilitySummary[] }) {
+  const [facilities, setFacilities] = useState(initialFacilities);
   const [origin, setOrigin] = useState<[number, number] | null>(null);
   const [radius, setRadius] = useState<number>(25);
   const [geoError, setGeoError] = useState<string | null>(null);
@@ -30,28 +30,27 @@ export function DiscoverClient({ initialCourts }: { initialCourts: NearbyCourt[]
     (lat: number, lng: number, km: number) => {
       startTransition(async () => {
         try {
-          // For now, just filter by distance client-side since we removed the API route
           const { haversineKm } = await import('@/lib/geo');
-          const filtered = initialCourts
-            .map((court) => ({
-              ...court,
-              distanceKm: haversineKm(lat, lng, court.latitude, court.longitude),
+          const filtered = initialFacilities
+            .map((f) => ({
+              ...f,
+              distanceKm: haversineKm(lat, lng, f.latitude, f.longitude),
             }))
-            .filter((court) => court.distanceKm <= km)
+            .filter((f) => f.distanceKm <= km)
             .sort((a, b) => a.distanceKm - b.distanceKm);
-          setCourts(filtered);
+          setFacilities(filtered);
         } catch {
-          setGeoError('Could not load nearby courts. Showing all courts instead.');
-          setCourts(initialCourts);
+          setGeoError('Could not load nearby facilities. Showing all facilities instead.');
+          setFacilities(initialFacilities);
         }
       });
     },
-    [initialCourts],
+    [initialFacilities],
   );
 
   const locate = useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setGeoError('This browser does not support location sharing. Showing all courts.');
+      setGeoError('This browser does not support location sharing. Showing all facilities.');
       return;
     }
 
@@ -67,12 +66,10 @@ export function DiscoverClient({ initialCourts }: { initialCourts: NearbyCourt[]
       },
       (error) => {
         setLocating(false);
-        // A denied or unavailable location must never blank the page: the full
-        // court list is still perfectly usable, just unsorted by distance.
         setGeoError(
           error.code === error.PERMISSION_DENIED
-            ? 'Location permission denied. Showing all courts instead.'
-            : 'Could not read your location. Showing all courts instead.',
+            ? 'Location permission denied. Showing all facilities instead.'
+            : 'Could not read your location. Showing all facilities instead.',
         );
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
@@ -90,21 +87,22 @@ export function DiscoverClient({ initialCourts }: { initialCourts: NearbyCourt[]
   const clearLocation = useCallback(() => {
     setOrigin(null);
     setGeoError(null);
-    setCourts(initialCourts);
-  }, [initialCourts]);
+    setFacilities(initialFacilities);
+  }, [initialFacilities]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return courts.filter((court) => {
-      if (courtType === 'INDOOR' && !court.hasIndoor) return false;
-      if (courtType === 'OUTDOOR' && !court.hasOutdoor) return false;
+    return facilities.filter((facility) => {
+      if (courtType === 'INDOOR' && !facility.hasIndoor) return false;
+      if (courtType === 'OUTDOOR' && !facility.hasOutdoor) return false;
       if (!needle) return true;
       return (
-        court.name.toLowerCase().includes(needle) ||
-        court.ownerName.toLowerCase().includes(needle)
+        facility.name.toLowerCase().includes(needle) ||
+        facility.ownerName.toLowerCase().includes(needle) ||
+        facility.city.toLowerCase().includes(needle)
       );
     });
-  }, [courts, courtType, query]);
+  }, [facilities, courtType, query]);
 
   return (
     <div className="space-y-6">
@@ -192,8 +190,7 @@ export function DiscoverClient({ initialCourts }: { initialCourts: NearbyCourt[]
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-zinc-600">
-              <span className="font-semibold text-zinc-900">{visible.length}</span> court
-              {visible.length === 1 ? '' : 's'}
+              <span className="font-semibold text-zinc-900">{visible.length}</span> facilit{visible.length === 1 ? 'y' : 'ies'}
               {origin ? ` within ${radius} km` : ''}
             </p>
             {origin && <Badge tone="brand">Sorted by distance</Badge>}
@@ -202,24 +199,24 @@ export function DiscoverClient({ initialCourts }: { initialCourts: NearbyCourt[]
           {visible.length === 0 ? (
             <EmptyState
               icon={origin ? <MapPinOff className="h-8 w-8" /> : <SearchX className="h-8 w-8" />}
-              title={origin ? 'No courts in this radius' : 'No courts match those filters'}
+              title={origin ? 'No facilities in this radius' : 'No facilities match those filters'}
               description={
                 origin
-                  ? 'Try a wider radius, or clear your location to browse every court.'
+                  ? 'Try a wider radius, or clear your location to browse every facility.'
                   : 'Clear the search box or pick a different filter.'
               }
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              {visible.map((court) => (
-                <OwnerCard key={court.id} court={court} />
+              {visible.map((facility) => (
+                <OwnerCard key={facility.id} facility={facility} />
               ))}
             </div>
           )}
         </div>
 
         <div className="h-[420px] overflow-hidden rounded-xl border border-zinc-200 shadow-card lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]">
-          <CourtMap courts={visible} center={origin ? { lat: origin[0], lng: origin[1] } : undefined} />
+          <CourtMap facilities={visible} center={origin ? { lat: origin[0], lng: origin[1] } : undefined} />
         </div>
       </div>
     </div>

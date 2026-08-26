@@ -26,12 +26,17 @@ export async function verifyBookingAction(_prev: ActionState, formData: FormData
 
   const parsed = verifyBookingSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
-  const { bookingId, decision, rejectionReason } = parsed.data;
+  const { groupId, decision, rejectionReason } = parsed.data;
 
-  const booking = await assertOwnsBooking(bookingId, user.id, user.role);
+  const group = await prisma.bookingGroup.findUnique({
+    where: { id: groupId },
+    include: { facility: { select: { ownerId: true } } },
+  });
+  if (!group?.facility) return { ok: false, message: 'Booking not found.' };
+  if (group.facility.ownerId !== user.id && user.role !== 'SUPER_ADMIN') return { ok: false, message: 'Not your facility.' };
 
-  if (booking.status !== 'PENDING_VERIFICATION') {
-    return { ok: false, message: `This booking is already ${booking.status.toLowerCase().replace('_', ' ')}.` };
+  if (group.status !== 'PENDING_VERIFICATION') {
+    return { ok: false, message: `This booking is already ${group.status.toLowerCase().replace('_', ' ')}.` };
   }
   if (decision === 'REJECT' && !rejectionReason) {
     return { ok: false, fieldErrors: { rejectionReason: ['Tell the player why the payment was rejected.'] } };
@@ -39,12 +44,16 @@ export async function verifyBookingAction(_prev: ActionState, formData: FormData
 
   try {
     await prisma.$transaction([
-      prisma.booking.update({
-        where: { id: bookingId },
+      prisma.bookingGroup.update({
+        where: { id: groupId },
+        data: { status: decision === 'APPROVE' ? 'CONFIRMED' : 'REJECTED' },
+      }),
+      prisma.booking.updateMany({
+        where: { groupId },
         data: { status: decision === 'APPROVE' ? 'CONFIRMED' : 'REJECTED' },
       }),
       prisma.paymentReceipt.update({
-        where: { bookingId },
+        where: { groupId },
         data: {
           verifiedAt: new Date(),
           verifiedById: user.id,
@@ -53,7 +62,7 @@ export async function verifyBookingAction(_prev: ActionState, formData: FormData
       }),
     ]);
   } catch (error) {
-    logger.error('verifyBookingAction transaction failed', { bookingId, userId: user.id, error: sanitizeError(error) });
+    logger.error('verifyBookingAction transaction failed', { groupId, userId: user.id, error: sanitizeError(error) });
     return { ok: false, message: 'Failed to update booking. Please try again.' };
   }
 
@@ -63,7 +72,7 @@ export async function verifyBookingAction(_prev: ActionState, formData: FormData
 
   return {
     ok: true,
-    message: decision === 'APPROVE' ? 'Booking confirmed.' : 'Payment rejected and the slot released.',
+    message: decision === 'APPROVE' ? 'Booking confirmed.' : 'Payment rejected and the slots released.',
   };
 }
 
@@ -178,6 +187,15 @@ export async function deletePaymentMethodAction(_prev: ActionState, formData: Fo
 export async function saveCourtAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { userId } = await requireOwner('/owner/courts');
 
+  const facilityId = String(formData.get('facilityId') ?? '');
+  if (!facilityId) return { ok: false, message: 'Facility ID is required.' };
+
+  const facility = await prisma.facility.findUnique({
+    where: { id: facilityId, ownerId: userId },
+    select: { id: true },
+  });
+  if (!facility) return { ok: false, message: 'Facility not found.' };
+
   const parsed = courtFormSchema.safeParse({
     id: formData.get('id') ?? '',
     name: formData.get('name'),
@@ -185,17 +203,17 @@ export async function saveCourtAction(_prev: ActionState, formData: FormData): P
     hourlyRate: formData.get('hourlyRate'),
     openHour: formData.get('openHour'),
     closeHour: formData.get('closeHour'),
-    isActive: formData.get('isActive') === 'on' || formData.get('isActive') === 'true',
+    isActive: formData.get('isActive'),
   });
   if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
 
   const { id, name, type, hourlyRate, openHour, closeHour, isActive } = parsed.data;
 
   const duplicate = await prisma.court.findFirst({
-    where: { ownerId: userId, name, ...(id ? { NOT: { id } } : {}) },
+    where: { facilityId, name, ...(id ? { NOT: { id } } : {}) },
     select: { id: true },
   });
-  if (duplicate) return { ok: false, fieldErrors: { name: ['You already have a court with that name.'] } };
+  if (duplicate) return { ok: false, fieldErrors: { name: ['You already have a court with that name in this facility.'] } };
 
   const data = {
     name,
@@ -208,11 +226,14 @@ export async function saveCourtAction(_prev: ActionState, formData: FormData): P
 
   try {
     if (id) {
-      const owned = await prisma.court.findFirst({ where: { id, ownerId: userId }, select: { id: true } });
+      const owned = await prisma.court.findFirst({
+        where: { id, facility: { ownerId: userId } },
+        select: { id: true },
+      });
       if (!owned) return { ok: false, message: 'That court belongs to another owner.' };
       await prisma.court.update({ where: { id }, data });
     } else {
-      await prisma.court.create({ data: { ...data, ownerId: userId } });
+      await prisma.court.create({ data: { ...data, facilityId } });
     }
   } catch (error) {
     logger.error('saveCourtAction db failed', { userId, courtId: id, error: sanitizeError(error) });
@@ -233,7 +254,7 @@ export async function deleteCourtAction(_prev: ActionState, formData: FormData):
 
   const courtId = String(formData.get('courtId') ?? '');
   const court = await prisma.court.findFirst({
-    where: { id: courtId, ownerId: userId },
+    where: { id: courtId, facility: { ownerId: userId } },
     include: { _count: { select: { bookings: true } } },
   });
   if (!court) return { ok: false, message: 'Court not found.' };

@@ -58,14 +58,37 @@ export async function requireOwner(callbackUrl?: string) {
   return { userId: user.id, user };
 }
 
+/** Assert the signed-in owner owns the facility. Returns the facility with courts. */
+export async function assertOwnsFacility(facilityId: string, userId: string, role: Role) {
+  const facility = await prisma.facility.findUnique({
+    where: { id: facilityId },
+    include: { courts: { orderBy: { name: 'asc' } } },
+  });
+  if (!facility) throw new Error('Facility not found.');
+  if (role !== 'SUPER_ADMIN' && facility.ownerId !== userId) {
+    throw new Error('That facility belongs to another owner.');
+  }
+  return facility;
+}
+
 /** Assert the signed-in owner owns the court this booking belongs to. */
 export async function assertOwnsBooking(bookingId: string, userId: string, role: Role) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { court: true, receipt: true, player: true },
+    include: { court: true },
   });
   if (!booking) throw new Error('Booking not found.');
-  if (role !== 'SUPER_ADMIN' && booking.court.ownerId !== userId) {
+  const court = await prisma.court.findUnique({
+    where: { id: booking.courtId },
+    select: { facilityId: true },
+  });
+  if (!court) throw new Error('Court not found.');
+  const facility = await prisma.facility.findUnique({
+    where: { id: court.facilityId },
+    select: { ownerId: true },
+  });
+  if (!facility) throw new Error('Facility not found.');
+  if (role !== 'SUPER_ADMIN' && facility.ownerId !== userId) {
     throw new Error('That booking belongs to another owner.');
   }
   return booking;

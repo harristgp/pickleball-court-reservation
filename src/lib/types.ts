@@ -21,7 +21,17 @@ export interface CourtAvailability {
   slots: DaySlot[];
 }
 
-export interface NearbyCourt {
+/** A single slot selected by the player during multi-hour booking. */
+export interface MultiSlotSelection {
+  courtId: string;
+  courtName: string;
+  hour: number;
+  rate: number;
+  dateKey: string;
+}
+
+/** Summary of a facility for the discover/browse pages. */
+export interface FacilitySummary {
   id: string;
   name: string;
   ownerId: string;
@@ -35,8 +45,26 @@ export interface NearbyCourt {
   courtCount: number;
   hasIndoor: boolean;
   hasOutdoor: boolean;
-  /** Absent until the player shares their location. */
   distanceKm?: number;
+}
+
+/** Full facility detail for the public profile page. */
+export interface FacilityDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  ownerId: string;
+  ownerName: string;
+  address: string;
+  city: string;
+  latitude: number | null;
+  longitude: number | null;
+  photos: string[];
+  openHour: number;
+  closeHour: number;
+  courtCount: number;
+  minRate: number | null;
+  maxRate: number | null;
 }
 
 /** A payment method owned by an owner, serialised for the checkout panel. */

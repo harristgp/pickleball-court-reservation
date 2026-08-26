@@ -12,37 +12,53 @@ export const metadata: Metadata = { title: 'Approvals queue' };
 export default async function OwnerVerifyPage() {
   const { userId } = await requireOwner('/owner/verify');
 
-  const bookings = await prisma.booking.findMany({
-    where: { court: { ownerId: userId }, status: 'PENDING_VERIFICATION' },
-    include: { receipt: true, court: true, player: { select: { name: true, email: true } } },
-    orderBy: [{ createdAt: 'asc' }],
+  const groups = await prisma.bookingGroup.findMany({
+    where: {
+      facility: { ownerId: userId },
+      status: 'PENDING_VERIFICATION',
+    },
+    include: {
+      receipt: true,
+      bookings: {
+        include: { court: true },
+        orderBy: { startTime: 'asc' },
+      },
+      facility: { select: { name: true } },
+      player: { select: { name: true, email: true } },
+    },
+    orderBy: { createdAt: 'asc' },
   });
 
-  // A PENDING_VERIFICATION row always has a receipt; the filter is a type guard
-  // rather than a real branch.
-  const items: QueueItem[] = bookings
-    .filter((booking) => booking.receipt !== null)
-    .map((booking) => ({
-      bookingId: booking.id,
-      courtName: booking.court.name,
-      courtType: booking.court.type,
-      playerName: booking.player.name || booking.player.email,
-      playerEmail: booking.player.email,
-      dateLabel: formatDateKey(toDateKey(booking.date)),
-      timeLabel: formatSlotRange(booking.startTime.getUTCHours()),
-      amount: decimalToNumber(booking.totalPrice),
-      screenshotUrl: booking.receipt!.screenshotUrl,
-      referenceNumber: booking.receipt!.referenceNumber,
-      amountClaimed:
-        booking.receipt!.amountClaimed === null ? null : decimalToNumber(booking.receipt!.amountClaimed),
-      uploadedLabel: formatDateTime(booking.receipt!.uploadedAt),
-    }));
+  const items: QueueItem[] = groups
+    .filter((group) => group.receipt !== null && group.facility !== null)
+    .map((group) => {
+      const facility = group.facility!;
+      const firstBooking = group.bookings[0]!;
+      const lastBooking = group.bookings[group.bookings.length - 1];
+      const hours = group.bookings.map((b) => b.court.name).join(', ');
+
+      return {
+        bookingId: group.id,
+        courtName: facility.name,
+        courtType: firstBooking.court.type as 'INDOOR' | 'OUTDOOR',
+        playerName: group.player.name || group.player.email,
+        playerEmail: group.player.email,
+        dateLabel: formatDateKey(toDateKey(firstBooking.date)),
+        timeLabel: `${formatSlotRange(firstBooking.startTime.getUTCHours())} × ${group.bookings.length}hr (${hours})`,
+        amount: decimalToNumber(group.totalPrice),
+        screenshotUrl: group.receipt!.screenshotUrl,
+        referenceNumber: group.receipt!.referenceNumber,
+        amountClaimed:
+          group.receipt!.amountClaimed === null ? null : decimalToNumber(group.receipt!.amountClaimed),
+        uploadedLabel: formatDateTime(group.receipt!.uploadedAt),
+      };
+    });
 
   return (
     <div className="space-y-5">
       <CardHeader
         title="Approvals queue"
-        description="Compare each receipt against the booking, then approve or reject. Rejecting frees the time slot immediately."
+        description="Compare each receipt against the booking, then approve or reject. Rejecting frees the time slots immediately."
       />
       <VerifyQueue items={items} />
     </div>

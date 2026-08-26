@@ -6,7 +6,7 @@ import L from 'leaflet';
 import Link from 'next/link';
 import { Badge } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
-import type { NearbyCourt } from '@/lib/types';
+import type { FacilitySummary } from '@/lib/types';
 
 function createCourtIcon() {
   return L.divIcon({
@@ -35,13 +35,13 @@ function LocationButton({ onLocate }: { onLocate: () => void }) {
 }
 
 export function CourtMap({
-  courts,
+  facilities,
   center,
   onSelectCourt,
 }: {
-  courts: NearbyCourt[];
+  facilities: FacilitySummary[];
   center?: { lat: number; lng: number };
-  onSelectCourt?: (court: NearbyCourt) => void;
+  onSelectCourt?: (court: FacilitySummary) => void;
 }) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -74,7 +74,7 @@ export function CourtMap({
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
         <LocationButton onLocate={() => {}} />
-        {courts.map((court) => (
+        {facilities.map((court) => (
           <Marker
             key={court.id}
             position={[court.latitude, court.longitude]}
@@ -85,7 +85,7 @@ export function CourtMap({
           >
             <Popup>
               <div className="min-w-[180px] p-1">
-                <Link href={`/owners/${court.ownerId}`} className="block">
+                <Link href={`/browse/facility/${court.id}`} className="block">
                   <p className="text-sm font-semibold text-zinc-900 hover:text-brand-700">{court.name}</p>
                   <p className="text-xs text-zinc-500">{court.ownerName}</p>
                   <div className="mt-1 flex flex-wrap gap-1">

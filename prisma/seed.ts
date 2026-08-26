@@ -1,14 +1,14 @@
 /**
  * Seeds a demo tenant set: one platform admin, two court owners, three players,
- * courts spread far enough apart that the 10/25/50 km radius filters visibly
- * differ, and bookings in every status so both the player dashboard and the
- * owner approvals queue are populated on first load.
+ * facilities with courts spread far enough apart that the 10/25/50 km radius
+ * filters visibly differ, and bookings in every status so both the player
+ * dashboard and the owner approvals queue are populated on first load.
  *
  * Run with: npm run seed
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { PrismaClient, type CourtType, type Prisma } from '@prisma/client';
+import { PrismaClient, type CourtType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 
@@ -17,7 +17,6 @@ const prisma = new PrismaClient();
 const PASSWORD = 'password123';
 const UPLOAD_ROOT = path.join(process.cwd(), 'public', 'uploads');
 
-/** Slots are whole hours anchored in UTC — same construction the app uses. */
 function utcDate(daysFromToday: number): Date {
   const now = new Date();
   const base = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
@@ -31,7 +30,6 @@ function slot(day: Date, hour: number): { start: Date; end: Date } {
   return { start, end: new Date(start.getTime() + 3_600_000) };
 }
 
-/** Writes a real, scannable QR PNG so the checkout page shows something honest. */
 async function writeQr(fileName: string, payload: string): Promise<string> {
   const dir = path.join(UPLOAD_ROOT, 'qr');
   await mkdir(dir, { recursive: true });
@@ -45,7 +43,6 @@ async function writeQr(fileName: string, payload: string): Promise<string> {
   return `/uploads/qr/${fileName}`;
 }
 
-/** A placeholder "receipt" screenshot, drawn as an SVG so no binary is vendored. */
 async function writeReceipt(fileName: string, lines: string[]): Promise<string> {
   const dir = path.join(UPLOAD_ROOT, 'receipts');
   await mkdir(dir, { recursive: true });
@@ -74,70 +71,110 @@ interface CourtSeed {
   longitude: number;
 }
 
-interface OwnerSeed {
-  email: string;
+interface FacilitySeed {
   name: string;
-  phone: string;
+  description: string;
+  address: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  openHour: number;
+  closeHour: number;
   accountName: string;
   accountNumber: string;
   instructions: string;
   courts: CourtSeed[];
 }
 
-// Coordinates are real Metro Manila locations. BGC → Quezon City is ~13 km and
-// BGC → Alabang is ~19 km, so 10 km, 25 km, and 50 km each return a different set.
+interface OwnerSeed {
+  email: string;
+  name: string;
+  phone: string;
+  facilities: FacilitySeed[];
+}
+
 const OWNERS: OwnerSeed[] = [
   {
     email: 'owner@smashcity.test',
     name: 'Rina Delgado',
     phone: '0917 555 0142',
-    accountName: 'Smash City Pickleball Inc.',
-    accountNumber: '0917 555 0142',
-    instructions:
-      'Scan the QR with GCash or Maya and send the exact booking amount. Upload the confirmation screenshot here — we verify within 30 minutes during opening hours. Walk-ins are only accepted if the slot is still open.',
-    courts: [
-      { name: 'Court 1 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23, latitude: 14.5507, longitude: 121.0501 },
-      { name: 'Court 2 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23, latitude: 14.5508, longitude: 121.0502 },
-      { name: 'Court 3', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22, latitude: 14.5509, longitude: 121.0503 },
-      { name: 'Court 4', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22, latitude: 14.5510, longitude: 121.0504 },
+    facilities: [
+      {
+        name: 'Smash City BGC',
+        description: 'Premium indoor pickleball facility in the heart of BGC. Four climate-controlled courts with professional-grade lighting and rubber flooring.',
+        address: '26th Street, Bonifacio Global City, Taguig',
+        city: 'Taguig',
+        latitude: 14.5507,
+        longitude: 121.0501,
+        openHour: 6,
+        closeHour: 23,
+        accountName: 'Smash City Pickleball Inc.',
+        accountNumber: '0917 555 0142',
+        instructions:
+          'Scan the QR with GCash or Maya and send the exact booking amount. Upload the confirmation screenshot here — we verify within 30 minutes during opening hours.',
+        courts: [
+          { name: 'Court 1 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23, latitude: 14.5507, longitude: 121.0501 },
+          { name: 'Court 2 (Indoor)', type: 'INDOOR', hourlyRate: 750, openHour: 6, closeHour: 23, latitude: 14.5508, longitude: 121.0502 },
+          { name: 'Court 3', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22, latitude: 14.5509, longitude: 121.0503 },
+          { name: 'Court 4', type: 'OUTDOOR', hourlyRate: 500, openHour: 6, closeHour: 22, latitude: 14.5510, longitude: 121.0504 },
+        ],
+      },
+      {
+        name: 'Smash City Southbay',
+        description: 'Outdoor courts along the Southbay promenade. Perfect for sunset games with a sea breeze.',
+        address: 'Southbay Boulevard, Muntinlupa',
+        city: 'Muntinlupa',
+        latitude: 14.4176,
+        longitude: 121.0409,
+        openHour: 6,
+        closeHour: 24,
+        accountName: 'Southbay Pickle Club',
+        accountNumber: '0995 118 3390',
+        instructions:
+          'Send payment through the QR below. Include your booking time in the notes of the transfer, then upload the screenshot so we can match it quickly.',
+        courts: [
+          { name: 'Bay 1', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24, latitude: 14.4176, longitude: 121.0409 },
+          { name: 'Bay 2', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24, latitude: 14.4177, longitude: 121.0410 },
+          { name: 'Bay 3', type: 'OUTDOOR', hourlyRate: 400, openHour: 6, closeHour: 22, latitude: 14.4178, longitude: 121.0411 },
+        ],
+      },
     ],
   },
   {
     email: 'owner@northsidedinks.test',
     name: 'Marco Lim',
     phone: '0918 220 7781',
-    accountName: 'Northside Dinks Sports Hub',
-    accountNumber: '0918 220 7781',
-    instructions:
-      'Transfer via the QR code or to our BPI account, then upload the receipt. Bookings unverified 30 minutes before start time are released to the waitlist.',
-    courts: [
-      { name: 'Hall A', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23, latitude: 14.6349, longitude: 121.0388 },
-      { name: 'Hall B', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23, latitude: 14.6350, longitude: 121.0389 },
-      { name: 'Hall C', type: 'INDOOR', hourlyRate: 550, openHour: 7, closeHour: 21, latitude: 14.6351, longitude: 121.0390 },
-    ],
-  },
-  {
-    email: 'owner@smashcity.test', // same owner, second set of courts
-    name: 'Rina Delgado',
-    phone: '0917 555 0142',
-    accountName: 'Southbay Pickle Club',
-    accountNumber: '0995 118 3390',
-    instructions:
-      'Send payment through the QR below. Include your booking time in the notes of the transfer, then upload the screenshot so we can match it quickly.',
-    courts: [
-      { name: 'Bay 1', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24, latitude: 14.4176, longitude: 121.0409 },
-      { name: 'Bay 2', type: 'OUTDOOR', hourlyRate: 450, openHour: 6, closeHour: 24, latitude: 14.4177, longitude: 121.0410 },
-      { name: 'Bay 3', type: 'OUTDOOR', hourlyRate: 400, openHour: 6, closeHour: 22, latitude: 14.4178, longitude: 121.0411 },
+    facilities: [
+      {
+        name: 'Northside Dinks Sports Hub',
+        description: 'Three indoor halls with varying court surfaces. Air-conditioned and well-lit for evening play.',
+        address: '73oose Avenue, Quezon City',
+        city: 'Quezon City',
+        latitude: 14.6349,
+        longitude: 121.0388,
+        openHour: 7,
+        closeHour: 23,
+        accountName: 'Northside Dinks Sports Hub',
+        accountNumber: '0918 220 7781',
+        instructions:
+          'Transfer via the QR code or to our BPI account, then upload the receipt. Bookings unverified 30 minutes before start time are released to the waitlist.',
+        courts: [
+          { name: 'Hall A', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23, latitude: 14.6349, longitude: 121.0388 },
+          { name: 'Hall B', type: 'INDOOR', hourlyRate: 600, openHour: 7, closeHour: 23, latitude: 14.6350, longitude: 121.0389 },
+          { name: 'Hall C', type: 'INDOOR', hourlyRate: 550, openHour: 7, closeHour: 21, latitude: 14.6351, longitude: 121.0390 },
+        ],
+      },
     ],
   },
 ];
 
 async function main() {
   console.log('› Resetting demo data…');
-  // Order matters: receipts reference bookings, bookings reference courts.
   await prisma.paymentReceipt.deleteMany();
   await prisma.booking.deleteMany();
+  await prisma.bookingGroup.deleteMany();
   await prisma.court.deleteMany();
+  await prisma.facility.deleteMany();
   await prisma.paymentMethod.deleteMany();
   await prisma.user.deleteMany();
 
@@ -159,99 +196,133 @@ async function main() {
     'owner@northsidedinks.test': ownerNorth.id,
   };
 
-  console.log('› Creating owners, courts, and payment configs…');
-  const created: { ownerId: string; courts: { id: string; name: string; rate: number }[] }[] = [];
+  console.log('› Creating owners, facilities, courts, and payment configs…');
+
+  type CourtRecord = { id: string; name: string; rate: number };
+  type FacilityRecord = { id: string; name: string; courts: CourtRecord[] };
+  const facilities: FacilityRecord[] = [];
 
   for (const seed of OWNERS) {
     const ownerId = ownerByEmail[seed.email];
-    const slug = seed.courts[0]?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') ?? 'default';
-    const qrCodeUrl = await writeQr(
-      `${slug}.png`,
-      `PAY:${seed.accountName}|ACCT:${seed.accountNumber}|REF:${slug.toUpperCase()}`,
-    );
 
-    const courts = await Promise.all(
-      seed.courts.map((court) =>
-        prisma.court.create({
-          data: {
-            ownerId,
-            name: court.name,
-            type: court.type,
-            hourlyRate: court.hourlyRate,
-            openHour: court.openHour,
-            closeHour: court.closeHour,
-            latitude: court.latitude,
-            longitude: court.longitude,
-            isActive: true,
-          },
-        }),
-      ),
-    );
+    for (const facSeed of seed.facilities) {
+      const slug = facSeed.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const qrCodeUrl = await writeQr(
+        `${slug}.png`,
+        `PAY:${facSeed.accountName}|ACCT:${facSeed.accountNumber}|REF:${slug.toUpperCase()}`,
+      );
 
-    await prisma.paymentMethod.create({
-      data: {
-        ownerId,
-        name: seed.accountName.includes('GCash') ? 'GCash' : seed.accountName.includes('Maya') ? 'Maya' : 'Default',
-        qrCodeUrl,
-        accountName: seed.accountName,
-        accountNumber: seed.accountNumber,
-        instructions: seed.instructions,
-        sortOrder: 0,
-      },
-    });
+      const facility = await prisma.facility.create({
+        data: {
+          ownerId,
+          name: facSeed.name,
+          description: facSeed.description,
+          address: facSeed.address,
+          city: facSeed.city,
+          latitude: facSeed.latitude,
+          longitude: facSeed.longitude,
+          openHour: facSeed.openHour,
+          closeHour: facSeed.closeHour,
+          isActive: true,
+        },
+      });
 
-    created.push({
-      ownerId,
-      courts: courts.map((court) => ({
-        id: court.id,
-        name: court.name,
-        rate: Number(court.hourlyRate),
-      })),
-    });
+      const courts = await Promise.all(
+        facSeed.courts.map((court) =>
+          prisma.court.create({
+            data: {
+              facilityId: facility.id,
+              name: court.name,
+              type: court.type,
+              hourlyRate: court.hourlyRate,
+              openHour: court.openHour,
+              closeHour: court.closeHour,
+              latitude: court.latitude,
+              longitude: court.longitude,
+              isActive: true,
+            },
+          }),
+        ),
+      );
+
+      await prisma.paymentMethod.create({
+        data: {
+          ownerId,
+          name: facSeed.accountName.includes('GCash') ? 'GCash' : facSeed.accountName.includes('Maya') ? 'Maya' : 'Default',
+          qrCodeUrl,
+          accountName: facSeed.accountName,
+          accountNumber: facSeed.accountNumber,
+          instructions: facSeed.instructions,
+          sortOrder: 0,
+        },
+      });
+
+      facilities.push({
+        id: facility.id,
+        name: facility.name,
+        courts: courts.map((c) => ({ id: c.id, name: c.name, rate: Number(c.hourlyRate) })),
+      });
+    }
   }
 
   console.log('› Creating bookings across every status…');
-  const [smash, north, south] = created;
+  const smashBgc = facilities.find((f) => f.name === 'Smash City BGC')!;
+  const smashSouth = facilities.find((f) => f.name === 'Smash City Southbay')!;
+  const northside = facilities.find((f) => f.name === 'Northside Dinks Sports Hub')!;
   const tomorrow = utcDate(1);
   const dayAfter = utcDate(2);
   const today = utcDate(0);
 
-  const courtOf = (owner: (typeof created)[number], name: string) => {
-    const court = owner.courts.find((candidate) => candidate.name === name);
+  const courtOf = (facility: FacilityRecord, name: string) => {
+    const court = facility.courts.find((c) => c.name === name);
     if (!court) throw new Error(`Seed court missing: ${name}`);
     return court;
   };
 
-  async function book(params: {
+  async function bookGroup(params: {
     playerId: string;
-    court: { id: string; rate: number };
-    day: Date;
-    hour: number;
+    facilityId?: string;
+    slots: { court: { id: string; rate: number }; day: Date; hour: number }[];
     status: 'PENDING_PAYMENT' | 'PENDING_VERIFICATION' | 'CONFIRMED' | 'REJECTED';
     notes?: string;
     receipt?: { url: string; reference: string; amount: number; rejectionReason?: string; verifiedById?: string };
   }) {
-    const { start, end } = slot(params.day, params.hour);
-    const booking = await prisma.booking.create({
+    const total = params.slots.reduce((sum, s) => sum + s.court.rate, 0);
+    const { start: firstStart } = slot(params.slots[0].day, params.slots[0].hour);
+    const lastSlot = params.slots[params.slots.length - 1];
+    const { end: lastEnd } = slot(lastSlot.day, lastSlot.hour);
+
+    const group = await prisma.bookingGroup.create({
       data: {
         playerId: params.playerId,
-        courtId: params.court.id,
-        date: params.day,
-        startTime: start,
-        endTime: end,
-        totalPrice: params.court.rate,
+        facilityId: params.facilityId ?? null,
+        totalPrice: total,
         status: params.status,
+        expiresAt: params.status === 'PENDING_PAYMENT' ? new Date(Date.now() + 30 * 60_000) : lastEnd,
         notes: params.notes,
-        // A live hold expires 30 minutes out; anything already decided keeps the
-        // slot until the game itself ends.
-        expiresAt: params.status === 'PENDING_PAYMENT' ? new Date(Date.now() + 30 * 60_000) : end,
       },
     });
+
+    for (const s of params.slots) {
+      const { start, end } = slot(s.day, s.hour);
+      await prisma.booking.create({
+        data: {
+          groupId: group.id,
+          playerId: params.playerId,
+          courtId: s.court.id,
+          date: s.day,
+          startTime: start,
+          endTime: end,
+          totalPrice: s.court.rate,
+          status: params.status,
+        },
+      });
+    }
 
     if (params.receipt) {
       await prisma.paymentReceipt.create({
         data: {
-          bookingId: booking.id,
+          groupId: group.id,
           screenshotUrl: params.receipt.url,
           referenceNumber: params.receipt.reference,
           amountClaimed: params.receipt.amount,
@@ -262,7 +333,7 @@ async function main() {
       });
     }
 
-    return booking;
+    return group;
   }
 
   const confirmedReceipt = await writeReceipt('seed-confirmed.svg', [
@@ -284,39 +355,35 @@ async function main() {
     'Status: Successful',
   ]);
 
-  await book({
+  await bookGroup({
     playerId: alex.id,
-    court: courtOf(smash, 'Court 3'),
-    day: today,
-    hour: 18,
+    facilityId: smashBgc.id,
+    slots: [{ court: courtOf(smashBgc, 'Court 3'), day: today, hour: 18 }],
     status: 'CONFIRMED',
     notes: 'Doubles with the Tuesday group.',
     receipt: { url: confirmedReceipt, reference: '0029 8371 2210', amount: 500, verifiedById: ownerSmash.id },
   });
 
-  await book({
+  await bookGroup({
     playerId: bea.id,
-    court: courtOf(smash, 'Court 1 (Indoor)'),
-    day: tomorrow,
-    hour: 19,
+    facilityId: smashBgc.id,
+    slots: [{ court: courtOf(smashBgc, 'Court 1 (Indoor)'), day: tomorrow, hour: 19 }],
     status: 'PENDING_VERIFICATION',
     notes: 'Please leave the aircon on.',
     receipt: { url: pendingReceipt, reference: '0044 1190 7765', amount: 750 },
   });
 
-  await book({
+  await bookGroup({
     playerId: caloy.id,
-    court: courtOf(north, 'Hall A'),
-    day: tomorrow,
-    hour: 20,
+    facilityId: northside.id,
+    slots: [{ court: courtOf(northside, 'Hall A'), day: tomorrow, hour: 20 }],
     status: 'PENDING_PAYMENT',
   });
 
-  await book({
+  await bookGroup({
     playerId: alex.id,
-    court: courtOf(south, 'Bay 1'),
-    day: dayAfter,
-    hour: 7,
+    facilityId: smashSouth.id,
+    slots: [{ court: courtOf(smashSouth, 'Bay 1'), day: dayAfter, hour: 7 }],
     status: 'REJECTED',
     receipt: {
       url: rejectedReceipt,
@@ -327,19 +394,33 @@ async function main() {
     },
   });
 
-  await book({
+  await bookGroup({
     playerId: bea.id,
-    court: courtOf(south, 'Bay 2'),
-    day: tomorrow,
-    hour: 8,
+    facilityId: smashSouth.id,
+    slots: [{ court: courtOf(smashSouth, 'Bay 2'), day: tomorrow, hour: 8 }],
     status: 'CONFIRMED',
     receipt: { url: confirmedReceipt, reference: '0091 5510 8842', amount: 450, verifiedById: ownerSmash.id },
+  });
+
+  // Multi-hour booking example: Alex books 3 consecutive hours on Court 1 at Smash City BGC
+  await bookGroup({
+    playerId: alex.id,
+    facilityId: smashBgc.id,
+    slots: [
+      { court: courtOf(smashBgc, 'Court 1 (Indoor)'), day: tomorrow, hour: 14 },
+      { court: courtOf(smashBgc, 'Court 1 (Indoor)'), day: tomorrow, hour: 15 },
+      { court: courtOf(smashBgc, 'Court 1 (Indoor)'), day: tomorrow, hour: 16 },
+    ],
+    status: 'CONFIRMED',
+    notes: 'Training session with coach.',
+    receipt: { url: confirmedReceipt, reference: '0055 1234 5678', amount: 2250, verifiedById: ownerSmash.id },
   });
 
   console.log('\n✔ Seed complete.');
   console.log(`  Admin   ${admin.email}`);
   console.log(`  Owners  ${ownerSmash.email}, ${ownerNorth.email}`);
   console.log(`  Players ${alex.email}, ${bea.email}, ${caloy.email}`);
+  console.log(`  Facilities ${facilities.map((f) => f.name).join(', ')}`);
   console.log(`  Password for every account: ${PASSWORD}\n`);
 }
 

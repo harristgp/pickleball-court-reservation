@@ -33,37 +33,48 @@ export function holdExpiryFrom(now: Date = new Date()): Date {
  * before every booking insert, which removes the need for a cron job.
  */
 export async function releaseExpiredHolds(db: Db = prisma, courtIds?: string[]): Promise<number> {
-  const result = await db.booking.updateMany({
+  // Release expired holds on individual bookings
+  const bookingResult = await db.booking.updateMany({
+    where: {
+      status: 'PENDING_PAYMENT',
+      court: courtIds?.length ? { id: { in: courtIds } } : undefined,
+      group: { expiresAt: { lt: new Date() } },
+    },
+    data: { status: 'REJECTED' },
+  });
+
+  // Also release expired BookingGroups and cascade to their bookings
+  const groupResult = await db.bookingGroup.updateMany({
     where: {
       status: 'PENDING_PAYMENT',
       expiresAt: { lt: new Date() },
-      ...(courtIds?.length ? { courtId: { in: courtIds } } : {}),
     },
     data: { status: 'REJECTED', notes: 'Automatically released: payment window expired.' },
   });
-  return result.count;
+
+  return bookingResult.count + groupResult.count;
 }
 
 export interface DayAvailabilityOptions {
-  ownerId: string;
+  facilityId: string;
   dateKey: string;
   /** When set, slots held by this player are tagged with their booking id. */
   viewerId?: string;
 }
 
 /**
- * The court-by-hour grid for one owner on one day.
+ * The court-by-hour grid for one facility on one day.
  *
  * Availability is derived from the same statuses the database index enforces,
  * so what the grid shows and what an insert will accept cannot disagree.
  */
-export async function getDayAvailability({
-  ownerId,
+export async function getFacilityAvailability({
+  facilityId,
   dateKey,
   viewerId,
 }: DayAvailabilityOptions): Promise<CourtAvailability[]> {
   const courts = await prisma.court.findMany({
-    where: { ownerId, isActive: true },
+    where: { facilityId, isActive: true },
     orderBy: { name: 'asc' },
   });
   if (courts.length === 0) return [];
@@ -122,8 +133,6 @@ export async function getDayAvailability({
 
 export function isSlotConflict(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') return false;
-  // Prisma reports the partial index either by name or by the column list it
-  // covers, depending on how the engine resolves it, so match on both.
   const meta = JSON.stringify(error.meta ?? {});
   return meta.includes('booking_active_slot') || (meta.includes('courtId') && meta.includes('startTime'));
 }

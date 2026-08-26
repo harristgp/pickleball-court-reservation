@@ -5,7 +5,12 @@ export default async function AdminOwnersPage() {
   const owners = await prisma.user.findMany({
     where: { role: 'OWNER' },
     include: {
-      courts: { select: { id: true, isActive: true } },
+      facilities: {
+        select: { id: true, isActive: true },
+        include: {
+          courts: { select: { id: true, isActive: true } },
+        },
+      },
       paymentMethods: { select: { id: true, isActive: true } },
     },
     orderBy: { createdAt: 'asc' },
@@ -19,8 +24,11 @@ export default async function AdminOwnersPage() {
         email: owner.email,
         phone: owner.phone,
         isActive: owner.isActive,
-        courtCount: owner.courts.length,
-        activeCourtCount: owner.courts.filter((c) => c.isActive).length,
+        courtCount: owner.facilities.reduce((sum, f) => sum + f.courts.length, 0),
+        activeCourtCount: owner.facilities.reduce(
+          (sum, f) => sum + f.courts.filter((c) => c.isActive).length,
+          0,
+        ),
         paymentMethodCount: owner.paymentMethods.length,
         createdAt: owner.createdAt.toISOString(),
       }))}

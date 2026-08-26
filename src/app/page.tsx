@@ -28,10 +28,10 @@ const STEPS = [
 ];
 
 export default async function HomePage() {
-  const [user, ownerCount, courtCount] = await Promise.all([
+  const [user, facilityCount, courtCount] = await Promise.all([
     getCurrentUser(),
-    prisma.user.count({ where: { role: 'OWNER', isActive: true } }),
-    prisma.court.count({ where: { isActive: true, owner: { isActive: true } } }),
+    prisma.facility.count({ where: { isActive: true, owner: { isActive: true } } }),
+    prisma.court.count({ where: { isActive: true, facility: { isActive: true, owner: { isActive: true } } } }),
   ]);
 
   return (
@@ -42,7 +42,7 @@ export default async function HomePage() {
           Book the court. Pay by QR. Play.
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base text-zinc-300">
-          {ownerCount} owner{ownerCount === 1 ? '' : 's'} and {courtCount} court{courtCount === 1 ? '' : 's'} taking
+          {facilityCount} facilit{facilityCount === 1 ? 'y' : 'ies'} and {courtCount} court{courtCount === 1 ? '' : 's'} taking
           reservations right now, with payment verified by the owner that runs the court.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

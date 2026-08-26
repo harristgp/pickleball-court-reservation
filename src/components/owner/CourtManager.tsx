@@ -22,7 +22,7 @@ export interface CourtRow {
 
 const HOURS = Array.from({ length: 25 }, (_, hour) => hour);
 
-export function CourtManager({ courts }: { courts: CourtRow[] }) {
+export function CourtManager({ courts, facilityId }: { courts: CourtRow[]; facilityId: string }) {
   const [editing, setEditing] = useState<CourtRow | null>(null);
   const [creating, setCreating] = useState(courts.length === 0);
 
@@ -51,6 +51,7 @@ export function CourtManager({ courts }: { courts: CourtRow[] }) {
         <CourtForm
           key={editing?.id ?? 'new'}
           court={editing}
+          facilityId={facilityId}
           onDone={() => {
             setEditing(null);
             setCreating(false);
@@ -126,13 +127,14 @@ export function CourtManager({ courts }: { courts: CourtRow[] }) {
   );
 }
 
-function CourtForm({ court, onDone }: { court: CourtRow | null; onDone: () => void }) {
+function CourtForm({ court, facilityId, onDone }: { court: CourtRow | null; facilityId: string; onDone: () => void }) {
   const [state, formAction] = useFormState(saveCourtAction, IDLE_ACTION_STATE);
 
   return (
     <Card className="border-brand-200 bg-brand-50/40 p-5">
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="id" value={court?.id ?? ''} />
+        <input type="hidden" name="facilityId" value={facilityId} />
 
         <h3 className="font-semibold text-zinc-900">{court ? `Edit ${court.name}` : 'New court'}</h3>
         {state.message && <Alert tone={state.ok ? 'success' : 'error'}>{state.message}</Alert>}

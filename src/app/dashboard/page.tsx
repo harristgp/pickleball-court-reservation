@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CalendarCheck, CalendarSearch, Clock, MapPin, Receipt, Trophy } from 'lucide-react';
-import type { Booking, BookingStatus, Court, PaymentReceipt, User } from '@prisma/client';
+import { CalendarCheck, CalendarDays, CalendarSearch, Clock, MapPin, Receipt, Trophy } from 'lucide-react';
+import type { BookingStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/session';
 import { releaseExpiredHolds } from '@/lib/slots';
@@ -12,8 +12,6 @@ import { StatusBadge } from '@/components/layout/StatusBadge';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'My bookings' };
-
-type Row = Booking & { receipt: PaymentReceipt | null; court: Court & { owner: User } };
 
 const GROUPS: { key: BookingStatus; title: string; description: string }[] = [
   {
@@ -27,23 +25,30 @@ const GROUPS: { key: BookingStatus; title: string; description: string }[] = [
     description: 'Your receipt is in the owner\'s verification queue.',
   },
   { key: 'CONFIRMED', title: 'Confirmed', description: 'Paid, verified, and on the schedule.' },
-  { key: 'REJECTED', title: 'Rejected or expired', description: 'These slots were released back to the owner.' },
+  { key: 'REJECTED', title: 'Rejected or expired', description: 'These bookings were released back to the owner.' },
 ];
 
 export default async function DashboardPage() {
   const user = await requireUser('/dashboard');
   await releaseExpiredHolds(prisma);
 
-  const bookings = (await prisma.booking.findMany({
+  const groups = await prisma.bookingGroup.findMany({
     where: { playerId: user.id },
-    include: { receipt: true, court: { include: { owner: true } } },
-    orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
-    take: 100,
-  })) as Row[];
+    include: {
+      bookings: {
+        orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
+        include: { court: true },
+      },
+      facility: { select: { name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
 
-  const upcoming = bookings.filter((b) => b.status === 'CONFIRMED' && b.endTime >= new Date()).length;
-  const awaiting = bookings.filter((b) => b.status === 'PENDING_VERIFICATION').length;
-  const unpaid = bookings.filter((b) => b.status === 'PENDING_PAYMENT').length;
+  const allBookings = groups.flatMap((g) => g.bookings);
+  const upcoming = allBookings.filter((b) => b.status === 'CONFIRMED' && b.endTime >= new Date()).length;
+  const awaiting = allBookings.filter((b) => b.status === 'PENDING_VERIFICATION').length;
+  const unpaid = groups.filter((g) => g.status === 'PENDING_PAYMENT').length;
 
   return (
     <div className="space-y-6">
@@ -55,7 +60,7 @@ export default async function DashboardPage() {
         <Link href="/discover">
           <Button variant="secondary">
             <CalendarSearch className="h-4 w-4" aria-hidden />
-            Find a court
+            Find a facility
           </Button>
         </Link>
       </div>
@@ -66,30 +71,30 @@ export default async function DashboardPage() {
         <Stat icon={<Clock className="h-4 w-4" aria-hidden />} label="Awaiting payment" value={unpaid} />
       </div>
 
-      {bookings.length === 0 ? (
+      {groups.length === 0 ? (
         <Card className="p-6">
           <EmptyState
             icon={<CalendarSearch className="h-6 w-6" aria-hidden />}
             title="No bookings yet"
-            description="Find a court near you and grab a slot."
+            description="Find a facility near you and grab a slot."
             action={
               <Link href="/discover">
-                <Button>Browse courts</Button>
+                <Button>Browse facilities</Button>
               </Link>
             }
           />
         </Card>
       ) : (
         <div className="space-y-8">
-          {GROUPS.map((group) => {
-            const rows = bookings.filter((booking) => booking.status === group.key);
-            if (rows.length === 0) return null;
+          {GROUPS.map((groupDef) => {
+            const matching = groups.filter((g) => g.status === groupDef.key);
+            if (matching.length === 0) return null;
             return (
-              <section key={group.key}>
-                <CardHeader title={group.title} description={group.description} />
+              <section key={groupDef.key}>
+                <CardHeader title={groupDef.title} description={groupDef.description} />
                 <div className="mt-3 space-y-3">
-                  {rows.map((booking) => (
-                    <BookingRow key={booking.id} booking={booking} />
+                  {matching.map((group) => (
+                    <GroupCard key={group.id} group={group} />
                   ))}
                 </div>
               </section>
@@ -113,44 +118,60 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
   );
 }
 
-function BookingRow({ booking }: { booking: Row }) {
-  const dateKey = toDateKey(booking.date);
-  const actionable = booking.status === 'PENDING_PAYMENT' || booking.status === 'PENDING_VERIFICATION';
+function GroupCard({
+  group,
+}: {
+  group: {
+    id: string;
+    status: BookingStatus;
+    totalPrice: import('@prisma/client').Prisma.Decimal;
+    createdAt: Date;
+    facility: { name: string } | null;
+    bookings: Array<{
+      id: string;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      totalPrice: import('@prisma/client').Prisma.Decimal;
+      court: { name: string; type: string };
+    }>;
+  };
+}) {
+  const actionable = group.status === 'PENDING_PAYMENT' || group.status === 'PENDING_VERIFICATION';
+  const firstBooking = group.bookings[0];
+  const latestBooking = group.bookings[group.bookings.length - 1];
+  const firstDate = firstBooking ? toDateKey(firstBooking.date) : '';
+  const hours = group.bookings.map((b) => b.court.name).join(', ');
 
   return (
     <Card className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold text-zinc-900">{booking.court.owner.name}</h3>
-          <StatusBadge status={booking.status} />
+          <h3 className="font-semibold text-zinc-900">{group.facility?.name ?? 'Unknown'}</h3>
+          <StatusBadge status={group.status} />
         </div>
         <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600">
           <span className="flex items-center gap-1.5">
             <Trophy className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
-            {booking.court.name}
+            {group.bookings.length} hour{group.bookings.length === 1 ? '' : 's'} — {hours}
           </span>
           <span className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
-            {formatDateKey(dateKey)} · {formatSlotRange(booking.startTime.getUTCHours())}
+            <CalendarDays className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+            {formatDateKey(firstDate)}
           </span>
         </p>
-        {booking.status === 'REJECTED' && booking.receipt?.rejectionReason && (
-          <p className="mt-2 rounded-md bg-red-50 px-2.5 py-1.5 text-xs text-red-700">
-            Reason: {booking.receipt.rejectionReason}
-          </p>
-        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
-        <span className="text-lg font-bold tabular-nums text-zinc-900">{formatMoney(booking.totalPrice)}</span>
+        <span className="text-lg font-bold tabular-nums text-zinc-900">{formatMoney(group.totalPrice)}</span>
         {actionable ? (
-          <Link href={`/checkout/${booking.id}`}>
-            <Button size="sm" variant={booking.status === 'PENDING_PAYMENT' ? 'primary' : 'secondary'}>
-              {booking.status === 'PENDING_PAYMENT' ? 'Complete payment' : 'View receipt'}
+          <Link href={`/checkout/${group.id}`}>
+            <Button size="sm" variant={group.status === 'PENDING_PAYMENT' ? 'primary' : 'secondary'}>
+              {group.status === 'PENDING_PAYMENT' ? 'Complete payment' : 'View receipt'}
             </Button>
           </Link>
         ) : (
-          <Link href={`/discover`}>
+          <Link href="/discover">
             <Button size="sm" variant="ghost">
               Book again
             </Button>

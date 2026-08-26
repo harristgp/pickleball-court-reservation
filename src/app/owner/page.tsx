@@ -19,19 +19,19 @@ export default async function OwnerHome() {
 
   const today = dateKeyToUtcMidnight(todayKey());
   const [courtCount, pendingCount, todays, confirmedMonth, paymentMethodCount] = await Promise.all([
-    prisma.court.count({ where: { ownerId: userId, isActive: true } }),
+    prisma.court.count({ where: { facility: { ownerId: userId }, isActive: true } }),
     prisma.booking.count({
-      where: { court: { ownerId: userId }, status: 'PENDING_VERIFICATION' },
+      where: { status: 'PENDING_VERIFICATION', court: { facility: { ownerId: userId } } },
     }),
     prisma.booking.findMany({
-      where: { court: { ownerId: userId }, date: today, status: { not: 'REJECTED' } },
-      include: { court: true, player: { select: { name: true, email: true } } },
+      where: { date: today, status: { not: 'REJECTED' }, court: { facility: { ownerId: userId } } },
+      include: { court: { include: { facility: true } }, player: { select: { name: true, email: true } } },
       orderBy: { startTime: 'asc' },
     }),
     prisma.booking.findMany({
       where: {
-        court: { ownerId: userId },
         status: 'CONFIRMED',
+        court: { facility: { ownerId: userId } },
         date: { gte: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)) },
       },
       select: { totalPrice: true },

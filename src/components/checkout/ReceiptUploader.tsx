@@ -15,11 +15,11 @@ function humanSize(bytes: number) {
 }
 
 export function ReceiptUploader({
-  bookingId,
+  groupId,
   amount,
   existingUrl,
 }: {
-  bookingId: string;
+  groupId: string;
   amount: number;
   existingUrl: string | null;
 }) {
@@ -63,7 +63,7 @@ export function ReceiptUploader({
 
   return (
     <form action={formAction} className="space-y-4">
-      <input type="hidden" name="bookingId" value={bookingId} />
+      <input type="hidden" name="groupId" value={groupId} />
 
       {existingUrl && !file && (
         <Alert tone="neutral">

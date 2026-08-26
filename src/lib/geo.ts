@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import type { NearbyCourt } from '@/lib/types';
+import type { FacilitySummary } from '@/lib/types';
 import type { RadiusOption } from '@/lib/validators';
 
 const EARTH_RADIUS_KM = 6371;
@@ -42,56 +42,52 @@ export function haversineKm(
 }
 
 /**
- * Courts within `radiusKm` of a point, nearest first.
+ * Facilities within `radiusKm` of a point, nearest first.
  *
  * Two-stage filter. The BETWEEN clauses are a cheap bounding box that the
  * (latitude, longitude) index can serve, discarding almost every row without
  * evaluating a trigonometric expression. The Haversine distance is then
  * computed only for survivors, and the outer query trims the box corners down
  * to a true circle.
- *
- * LEAST(1.0, ...) clamps the acos argument: at distance zero floating point
- * rounding can push the cosine fractionally above 1, which would make acos()
- * return NaN and silently drop the court a player is standing inside.
  */
-export async function findNearbyCourts(
+export async function findNearbyFacilities(
   lat: number,
   lng: number,
   radiusKm: RadiusOption | number,
-): Promise<NearbyCourt[]> {
+): Promise<FacilitySummary[]> {
   const latDelta = radiusKm / KM_PER_DEGREE_LAT;
-  // Longitude degrees shrink toward the poles; guard the cosine near +/-90.
   const lngDelta = radiusKm / (KM_PER_DEGREE_LAT * Math.max(0.01, Math.cos((lat * Math.PI) / 180)));
 
   const rows = await prisma.$queryRaw<NearbyRow[]>`
     SELECT * FROM (
       SELECT
-        ct.id,
-        ct.name,
-        ct."ownerId",
+        f.id,
+        f.name,
+        f."ownerId",
         u.name AS "ownerName",
-        '' AS "city",
-        '' AS "address",
-        ct.latitude,
-        ct.longitude,
-        ct."hourlyRate" AS "minRate",
-        ct."hourlyRate" AS "maxRate",
-        COUNT(ct.id) OVER (PARTITION BY ct."ownerId") AS "courtCount",
-        (ct.type = 'INDOOR') AS "hasIndoor",
-        (ct.type = 'OUTDOOR') AS "hasOutdoor",
+        f.city,
+        f.address,
+        f.latitude,
+        f.longitude,
+        (SELECT MIN(c."hourlyRate") FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true) AS "minRate",
+        (SELECT MAX(c."hourlyRate") FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true) AS "maxRate",
+        (SELECT COUNT(*)::int FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true) AS "courtCount",
+        (SELECT EXISTS(SELECT 1 FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true AND c.type = 'INDOOR')) AS "hasIndoor",
+        (SELECT EXISTS(SELECT 1 FROM "Court" c WHERE c."facilityId" = f.id AND c."isActive" = true AND c.type = 'OUTDOOR')) AS "hasOutdoor",
         ${EARTH_RADIUS_KM} * acos(LEAST(1.0,
-          cos(radians(${lat})) * cos(radians(ct.latitude)) *
-          cos(radians(ct.longitude) - radians(${lng})) +
-          sin(radians(${lat})) * sin(radians(ct.latitude))
+          cos(radians(${lat})) * cos(radians(f.latitude)) *
+          cos(radians(f.longitude) - radians(${lng})) +
+          sin(radians(${lat})) * sin(radians(f.latitude))
         )) AS "distanceKm"
-      FROM "Court" ct
-      INNER JOIN "User" u ON u.id = ct."ownerId"
-      WHERE ct."isActive" = true
+      FROM "Facility" f
+      INNER JOIN "User" u ON u.id = f."ownerId"
+      WHERE f."isActive" = true
         AND u."isActive" = true
-        AND ct.latitude  BETWEEN ${lat - latDelta} AND ${lat + latDelta}
-        AND ct.longitude BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
+        AND f.latitude  BETWEEN ${lat - latDelta} AND ${lat + latDelta}
+        AND f.longitude BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}
     ) q
     WHERE q."distanceKm" <= ${radiusKm}
+      AND q."courtCount" > 0
     ORDER BY q."distanceKm" ASC
     LIMIT 50
   `;
@@ -99,37 +95,43 @@ export async function findNearbyCourts(
   return rows.map(serialiseRow);
 }
 
-/** Every active court, unsorted by distance — the pre-geolocation view. */
-export async function listActiveCourts(): Promise<NearbyCourt[]> {
-  const courts = await prisma.court.findMany({
+/** Every active facility, unsorted by distance — the pre-geolocation view. */
+export async function listActiveFacilities(): Promise<FacilitySummary[]> {
+  const facilities = await prisma.facility.findMany({
     where: { isActive: true, owner: { isActive: true } },
     include: {
       owner: { select: { id: true, name: true } },
+      courts: {
+        where: { isActive: true },
+        select: { type: true, hourlyRate: true },
+      },
     },
     orderBy: { name: 'asc' },
   });
 
-  return courts.map((court) => {
-    const rate = court.hourlyRate.toNumber();
-    return {
-      id: court.id,
-      name: court.name,
-      ownerId: court.owner.id,
-      ownerName: court.owner.name,
-      city: '',
-      address: '',
-      latitude: court.latitude ?? 0,
-      longitude: court.longitude ?? 0,
-      minRate: rate,
-      maxRate: rate,
-      courtCount: 1,
-      hasIndoor: court.type === 'INDOOR',
-      hasOutdoor: court.type === 'OUTDOOR',
-    };
-  });
+  return facilities
+    .filter((f) => f.courts.length > 0)
+    .map((facility) => {
+      const rates = facility.courts.map((c) => c.hourlyRate.toNumber());
+      return {
+        id: facility.id,
+        name: facility.name,
+        ownerId: facility.owner.id,
+        ownerName: facility.owner.name,
+        city: facility.city,
+        address: facility.address,
+        latitude: facility.latitude ?? 0,
+        longitude: facility.longitude ?? 0,
+        minRate: rates.length ? Math.min(...rates) : null,
+        maxRate: rates.length ? Math.max(...rates) : null,
+        courtCount: facility.courts.length,
+        hasIndoor: facility.courts.some((c) => c.type === 'INDOOR'),
+        hasOutdoor: facility.courts.some((c) => c.type === 'OUTDOOR'),
+      };
+    });
 }
 
-function serialiseRow(row: NearbyRow): NearbyCourt {
+function serialiseRow(row: NearbyRow): FacilitySummary {
   const toNumber = (value: string | number | null) =>
     value === null ? null : typeof value === 'number' ? value : Number.parseFloat(value);
 

@@ -71,17 +71,51 @@ export const createBookingSchema = z.object({
   notes: z.string().trim().max(280).optional().or(z.literal('')),
 });
 
+/** Multi-slot booking: array of {courtId, hour} for a single date. */
+export const createMultiBookingSchema = z.object({
+  facilityId: z.string().cuid('Unknown facility'),
+  date: dateKeySchema,
+  slots: z
+    .array(
+      z.object({
+        courtId: z.string().cuid(),
+        hour: z.coerce.number().int().min(0).max(23),
+      }),
+    )
+    .min(1, 'Select at least one time slot')
+    .max(12, 'You can book up to 12 hours at once'),
+  notes: z.string().trim().max(280).optional().or(z.literal('')),
+});
+
 export const uploadReceiptSchema = z.object({
-  bookingId: z.string().cuid(),
+  groupId: z.string().cuid(),
   referenceNumber: z.string().trim().max(64).optional().or(z.literal('')),
   amountClaimed: z.coerce.number().nonnegative().max(1_000_000).optional(),
   screenshot: imageFileSchema,
 });
 
 export const verifyBookingSchema = z.object({
-  bookingId: z.string().cuid(),
+  groupId: z.string().cuid(),
   decision: z.enum(['APPROVE', 'REJECT']),
   rejectionReason: z.string().trim().max(280).optional().or(z.literal('')),
+});
+
+export const facilitySchema = z.object({
+  id: z.string().cuid().optional().or(z.literal('')),
+  name: z.string().trim().min(1, 'Facility name is required').max(100),
+  description: z.string().trim().max(2000).optional().or(z.literal('')),
+  address: z.string().trim().min(1, 'Address is required').max(200),
+  city: z.string().trim().min(1, 'City is required').max(100),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+  openHour: z.coerce.number().int().min(0).max(23),
+  closeHour: z.coerce.number().int().min(1).max(24),
+  isActive: z.coerce.boolean().default(true),
+});
+
+export const facilityFormSchema = facilitySchema.refine((data) => data.closeHour > data.openHour, {
+  message: 'Closing hour must be after opening hour',
+  path: ['closeHour'],
 });
 
 export const courtSchema = z.object({
