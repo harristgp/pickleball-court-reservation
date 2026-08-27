@@ -88,13 +88,9 @@ export default async function FacilityPage({
 
       <MultiCourtGrid
         facilityId={facility.id}
-        ownerId={facility.ownerId}
         dateKey={dateKey}
         courts={courts}
         isSignedIn={Boolean(user)}
-        paymentMethods={
-          paymentMethod ? [paymentMethod] : []
-        }
       />
     </div>
   );

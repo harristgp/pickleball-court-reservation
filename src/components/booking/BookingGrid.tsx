@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFormState } from 'react-dom';
 import { Building2, CalendarDays, Clock, Info, Trees } from 'lucide-react';
@@ -61,8 +61,10 @@ export function BookingGrid({
   }, [courts]);
 
   // A failed insert (slot taken by someone else) invalidates the selection.
+  const prevOkRef = useRef(state.ok);
   useEffect(() => {
-    if (state.message && !state.ok) setSelection(null);
+    if (prevOkRef.current && state.message && !state.ok) setSelection(null);
+    prevOkRef.current = state.ok;
   }, [state]);
 
   function changeDate(nextKey: string) {

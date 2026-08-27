@@ -11,7 +11,7 @@ import type { ActionState } from '@/lib/types';
 
 /**
  * Only same-origin destinations may be redirected to, so a crafted callbackUrl
- * cannot turn the login form into an open redirect. The middleware hands back
+ * cannot turn the login form into an open redirect. The proxy hands back
  * an absolute URL, so both shapes have to be accepted — but an absolute one
  * only when its origin is this app's own.
  */

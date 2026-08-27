@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useFormState } from 'react-dom';
-import { Check, ImageUp, Plus, QrCode, Save, Trash2, X } from 'lucide-react';
+import { ImageUp, Plus, QrCode, Save, Trash2 } from 'lucide-react';
 import { savePaymentMethodAction, deletePaymentMethodAction } from '@/actions/owner';
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from '@/lib/validators';
 import { IDLE_ACTION_STATE } from '@/lib/types';
 import { Alert, Badge, Button, Field, Input, SubmitButton, Textarea } from '@/components/ui';
-import type { PaymentMethodSummary } from '@/lib/types';
 
 export interface PaymentMethodFormDefaults {
   id: string;
@@ -142,12 +141,9 @@ function MethodForm({
   const [sizeError, setSizeError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!file) {
-      setPreview(null);
-      return;
-    }
+    if (!file) return;
     const url = URL.createObjectURL(file);
-    setPreview(url);
+    setPreview(url); // eslint-disable-line react-hooks/set-state-in-effect -- syncing external object URL with state
     return () => URL.revokeObjectURL(url);
   }, [file]);
 

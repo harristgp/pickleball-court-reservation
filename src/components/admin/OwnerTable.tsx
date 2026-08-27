@@ -3,7 +3,7 @@
 import { useFormState } from 'react-dom';
 import { ToggleLeft, ToggleRight, Users } from 'lucide-react';
 import { toggleOwnerActiveAction } from '@/actions/admin';
-import { Alert, EmptyState, Spinner } from '@/components/ui';
+import { EmptyState } from '@/components/ui';
 import { IDLE_ACTION_STATE } from '@/lib/types';
 
 interface OwnerRow {

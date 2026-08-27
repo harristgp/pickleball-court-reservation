@@ -32,12 +32,9 @@ export function ReceiptUploader({
 
   // Object URLs leak until revoked, and a new one is minted per selection.
   useEffect(() => {
-    if (!file) {
-      setPreview(null);
-      return;
-    }
+    if (!file) return;
     const url = URL.createObjectURL(file);
-    setPreview(url);
+    setPreview(url); // eslint-disable-line react-hooks/set-state-in-effect -- syncing external object URL with state
     return () => URL.revokeObjectURL(url);
   }, [file]);
 

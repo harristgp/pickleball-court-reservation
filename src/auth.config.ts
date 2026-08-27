@@ -4,7 +4,7 @@ import type { Role } from '@prisma/client';
 /**
  * Edge-safe half of the auth setup.
  *
- * middleware.ts runs on the Edge runtime, where Prisma and bcrypt cannot load.
+ * proxy.ts runs on the Node.js runtime, where Prisma and bcrypt cannot load.
  * This file therefore holds only pure callbacks and route rules; the Credentials
  * provider (which needs both) lives in auth.ts and is merged in there.
  */
@@ -35,7 +35,7 @@ export const authConfig = {
   },
   session: { strategy: 'jwt' },
   callbacks: {
-    // Runs in middleware for every guarded request.
+    // Runs in proxy for every guarded request.
     authorized({ auth, request }) {
       const rule = ruleForPath(request.nextUrl.pathname);
       if (!rule) return true;

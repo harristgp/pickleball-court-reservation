@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { requireOwner } from '@/lib/session';
@@ -44,7 +43,7 @@ export default async function OwnerFacilitiesPage() {
 
       {facilities.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-10 text-center">
-          <p className="text-sm text-zinc-500">You haven't created any facilities yet.</p>
+          <p className="text-sm text-zinc-500">You haven&apos;t created any facilities yet.</p>
           <Link
             href="/owner/facilities/add"
             className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:underline"

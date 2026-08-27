@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useFormState } from 'react-dom';
-import { Plus, Pencil, X } from 'lucide-react';
+import { Pencil, X } from 'lucide-react';
 import { Alert, Button, Field, Input, SubmitButton } from '@/components/ui';
 import { addCourtAction, updateCourtAction } from '@/actions/facility';
 import { IDLE_ACTION_STATE } from '@/lib/types';

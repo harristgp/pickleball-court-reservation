@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { storage } from '@/lib/storage';
-import { assertOwnsBooking, requireOwner, requireRole } from '@/lib/session';
+import { requireOwner, requireRole } from '@/lib/session';
 import {
   courtFormSchema,
   deletePaymentMethodSchema,

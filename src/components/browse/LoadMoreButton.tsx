@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useState, useTransition } from 'react';
+import { useCallback, useTransition } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui';
 

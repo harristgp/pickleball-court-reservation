@@ -16,7 +16,7 @@ export function BrowseFilters({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const q = searchParams.get('q') ?? '';
   const type = (searchParams.get('type') ?? 'ALL') as CourtFilter;
@@ -38,7 +38,6 @@ export function BrowseFilters({
   );
 
   const totalPages = Math.ceil(total / pageSize);
-  const showing = Math.min(total, pageSize);
 
   return (
     <div className="space-y-4">
@@ -85,7 +84,6 @@ export function BrowseFilters({
           <button
             type="button"
             onClick={() => {
-              const params = new URLSearchParams();
               startTransition(() => {
                 router.push('/browse', { scroll: false });
               });

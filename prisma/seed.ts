@@ -288,7 +288,6 @@ async function main() {
     receipt?: { url: string; reference: string; amount: number; rejectionReason?: string; verifiedById?: string };
   }) {
     const total = params.slots.reduce((sum, s) => sum + s.court.rate, 0);
-    const { start: firstStart } = slot(params.slots[0].day, params.slots[0].hour);
     const lastSlot = params.slots[params.slots.length - 1];
     const { end: lastEnd } = slot(lastSlot.day, lastSlot.hour);
 

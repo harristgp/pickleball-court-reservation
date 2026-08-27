@@ -197,7 +197,7 @@ club setup form (name, description, address, city, coordinates) instead of the d
 latitude and longitude in one click. Slugs are derived from the name and de-duplicated, so two clubs may share a
 name without colliding. One club per owner in this build.
 
-`src/middleware.ts` guards them: `/admin/*` needs `SUPER_ADMIN`, `/owner/*` needs `OWNER` or `SUPER_ADMIN`,
+`src/proxy.ts` guards them: `/admin/*` needs `SUPER_ADMIN`, `/owner/*` needs `OWNER` or `SUPER_ADMIN`,
 `/dashboard` and `/checkout/*` need any session. Unauthenticated hits redirect to `/login?callbackUrl=…`. The
 middleware imports `auth.config.ts` only — Prisma and bcrypt stay in `auth.ts` so the edge bundle stays clean.
 

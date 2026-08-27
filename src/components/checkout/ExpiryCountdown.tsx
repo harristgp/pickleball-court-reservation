@@ -24,7 +24,6 @@ export function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
   const [left, setLeft] = useState(() => remainingMs(deadline));
 
   useEffect(() => {
-    setLeft(remainingMs(deadline));
     const id = setInterval(() => setLeft(remainingMs(deadline)), 1000);
     return () => clearInterval(id);
   }, [deadline]);

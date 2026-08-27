@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFormState } from 'react-dom';
-import { Building2, CalendarDays, Clock, Info, Loader2, Trees, X } from 'lucide-react';
+import { Building2, CalendarDays, Clock, Info, Trees, X } from 'lucide-react';
 import { createMultiBookingAction } from '@/actions/booking';
 import { Alert, Badge, SubmitButton, Textarea } from '@/components/ui';
 import {
@@ -22,18 +22,14 @@ const DAYS_AHEAD = 14;
 
 export function MultiCourtGrid({
   facilityId,
-  ownerId,
   dateKey,
   courts,
   isSignedIn,
-  paymentMethods,
 }: {
   facilityId: string;
-  ownerId: string;
   dateKey: string;
   courts: CourtAvailability[];
   isSignedIn: boolean;
-  paymentMethods: Array<{ id: string; name: string; accountName: string; qrCodeUrl: string | null; instructions: string }>;
 }) {
   const router = useRouter();
   const [selections, setSelections] = useState<MultiSlotSelection[]>([]);
@@ -60,8 +56,10 @@ export function MultiCourtGrid({
     [selections],
   );
 
+  const prevOkRef = useRef(state.ok);
   useEffect(() => {
-    if (state.message && !state.ok) setSelections([]);
+    if (prevOkRef.current && state.message && !state.ok) setSelections([]);
+    prevOkRef.current = state.ok;
   }, [state]);
 
   const toggleSlot = useCallback(

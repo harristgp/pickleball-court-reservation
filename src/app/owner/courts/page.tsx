@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { requireOwner } from '@/lib/session';
-import { decimalToNumber } from '@/lib/money';
 import { formatHour } from '@/lib/dates';
 import { formatMoney } from '@/lib/money';
 import { Card, CardHeader, EmptyState, Badge } from '@/components/ui';

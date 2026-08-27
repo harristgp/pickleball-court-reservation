@@ -56,6 +56,7 @@ function objectKey(keyOrUrl: string, bucket: string): string | null {
   return decodeURIComponent(path.slice(at + marker.length)) || null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import of optional peer dependency
 async function getClient(): Promise<{ client: any; bucket: string }> {
   const url = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -65,10 +66,11 @@ async function getClient(): Promise<{ client: any; bucket: string }> {
     throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when STORAGE_DRIVER=supabase');
   }
 
-  let createClient: (url: string, key: string, options?: unknown) => any;
+  let createClient: (url: string, key: string, options?: unknown) => unknown;
   try {
     // Kept non-literal so the optional dependency is not required at build time.
     const specifier = '@supabase/supabase-js';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import of optional peer dependency
     ({ createClient } = (await import(/* webpackIgnore: true */ specifier)) as any);
   } catch {
     throw new Error('STORAGE_DRIVER=supabase requires @supabase/supabase-js. Run: npm i @supabase/supabase-js');

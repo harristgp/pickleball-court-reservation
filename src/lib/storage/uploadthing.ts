@@ -58,12 +58,14 @@ function requireToken(): string {
   return token;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import of optional peer dependency
 async function importUploadThing(): Promise<{ UTApi: any }> {
   try {
     // The specifier goes through a variable on purpose: uploadthing is an
     // optional peer, and a literal here would make TypeScript demand the types
     // and webpack demand the module even when the driver is never selected.
     const specifier = 'uploadthing/server';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import of optional peer dependency
     return (await import(/* webpackIgnore: true */ specifier)) as { UTApi: any };
   } catch {
     throw new Error('STORAGE_DRIVER=uploadthing requires the uploadthing package. Run: npm i uploadthing');

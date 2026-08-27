@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CalendarCheck, CalendarDays, CalendarSearch, Clock, MapPin, Receipt, Trophy } from 'lucide-react';
+import { CalendarCheck, CalendarDays, CalendarSearch, Clock, Receipt, Trophy } from 'lucide-react';
 import type { BookingStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/session';
 import { releaseExpiredHolds } from '@/lib/slots';
 import { formatMoney } from '@/lib/money';
-import { formatDateKey, formatSlotRange, toDateKey } from '@/lib/dates';
+import { formatDateKey, toDateKey } from '@/lib/dates';
 import { Button, Card, CardHeader, EmptyState } from '@/components/ui';
 import { StatusBadge } from '@/components/layout/StatusBadge';
 
@@ -151,7 +151,6 @@ function GroupCard({
 }) {
   const actionable = group.status === 'PENDING_PAYMENT' || group.status === 'PENDING_VERIFICATION';
   const firstBooking = group.bookings[0];
-  const latestBooking = group.bookings[group.bookings.length - 1];
   const firstDate = firstBooking ? toDateKey(firstBooking.date) : '';
   const hours = group.bookings.map((b) => b.court.name).join(', ');
 

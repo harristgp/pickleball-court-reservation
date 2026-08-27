@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOwner } from '@/lib/session';
 import { decimalToNumber } from '@/lib/money';
 import { formatDateKey, formatDateTime, formatSlotRange, toDateKey } from '@/lib/dates';
-import { Card, CardHeader } from '@/components/ui';
+import { CardHeader } from '@/components/ui';
 import { VerifyQueue, type QueueItem } from '@/components/owner/VerifyQueue';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +49,6 @@ export default async function OwnerVerifyPage() {
     .map((group) => {
       const facility = group.facility!;
       const firstBooking = group.bookings[0]!;
-      const lastBooking = group.bookings[group.bookings.length - 1];
       const hours = group.bookings.map((b) => b.court.name).join(', ');
 
       return {
