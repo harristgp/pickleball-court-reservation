@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useFormState } from 'react-dom';
 import { Check, ImageUp, Plus, QrCode, Save, Trash2, X } from 'lucide-react';
 import { savePaymentMethodAction, deletePaymentMethodAction } from '@/actions/owner';
@@ -87,8 +88,14 @@ function MethodCard({
     <div className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-card">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-50 ring-1 ring-zinc-200">
         {method.qrCodeUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={method.qrCodeUrl} alt={method.name} className="h-full w-full object-contain p-1" />
+          <Image
+            src={method.qrCodeUrl}
+            alt={method.name}
+            width={48}
+            height={48}
+            className="h-full w-full object-contain p-1"
+            unoptimized
+          />
         ) : (
           <QrCode className="h-5 w-5 text-zinc-400" aria-hidden />
         )}
@@ -154,8 +161,14 @@ function MethodForm({
         <div className="space-y-3">
           <div className="flex h-52 w-52 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-white">
             {shown ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={shown} alt="Payment QR code" className="h-full w-full object-contain p-2" />
+              <Image
+                src={shown}
+                alt="Payment QR code"
+                width={208}
+                height={208}
+                className="h-full w-full object-contain p-2"
+                unoptimized
+              />
             ) : (
               <span className="flex flex-col items-center gap-2 text-zinc-400">
                 <QrCode className="h-8 w-8" aria-hidden />

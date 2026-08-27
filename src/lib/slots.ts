@@ -76,6 +76,14 @@ export async function getFacilityAvailability({
   const courts = await prisma.court.findMany({
     where: { facilityId, isActive: true },
     orderBy: { name: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      hourlyRate: true,
+      openHour: true,
+      closeHour: true,
+    },
   });
   if (courts.length === 0) return [];
 

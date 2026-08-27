@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { storage } from '@/lib/storage';
@@ -42,6 +42,7 @@ export async function createFacilityAction(_prev: ActionState, formData: FormDat
   }
 
   revalidatePath('/owner/facilities');
+  updateTag('home-stats');
   redirect('/owner/facilities');
 }
 

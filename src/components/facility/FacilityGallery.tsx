@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export function FacilityGallery({ photos }: { photos: string[] }) {
@@ -16,10 +17,13 @@ export function FacilityGallery({ photos }: { photos: string[] }) {
             onClick={() => setActive(i)}
             className="group relative aspect-video overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
           >
-            <img
+            <Image
               src={url}
               alt={`Facility photo ${i + 1}`}
-              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover transition-transform group-hover:scale-105"
+              unoptimized
             />
           </button>
         ))}
@@ -43,10 +47,13 @@ export function FacilityGallery({ photos }: { photos: string[] }) {
             <ChevronLeft className="h-5 w-5" />
           </button>
 
-          <img
+          <Image
             src={photos[active]}
             alt={`Facility photo ${active + 1}`}
+            width={1200}
+            height={800}
             className="max-h-[80vh] max-w-[90vw] rounded-xl object-contain"
+            unoptimized
           />
 
           <button

@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import type { Role } from '@prisma/client';
 import { auth } from '@/auth';
@@ -13,14 +14,10 @@ export interface SessionUser {
 /**
  * The signed-in user, re-read from the database on every call.
  *
- * The JWT is self-contained, so a token minted for a user who has since been
- * deleted would otherwise still authenticate and then fail at the first foreign
- * key. Reading the row back also means a role change takes effect immediately
- * instead of waiting for the token to be reissued. Middleware still decides on
- * the token alone (Prisma cannot run on the Edge), so this is the check that
- * actually gates every page and server action.
+ * Wrapped in React `cache()` so multiple components/subcomponents in a single
+ * request lifecycle share one DB lookup instead of N redundant round-trips.
  */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const session = await auth();
   if (!session?.user?.id) return null;
 
@@ -31,7 +28,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!user) return null;
 
   return { id: user.id, name: user.name, email: user.email, role: user.role };
-}
+});
 
 export async function requireUser(callbackUrl?: string): Promise<SessionUser> {
   const user = await getCurrentUser();
@@ -75,20 +72,15 @@ export async function assertOwnsFacility(facilityId: string, userId: string, rol
 export async function assertOwnsBooking(bookingId: string, userId: string, role: Role) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { court: true },
+    select: {
+      id: true,
+      court: { select: { facility: { select: { ownerId: true } } } },
+    },
   });
   if (!booking) throw new Error('Booking not found.');
-  const court = await prisma.court.findUnique({
-    where: { id: booking.courtId },
-    select: { facilityId: true },
-  });
-  if (!court) throw new Error('Court not found.');
-  const facility = await prisma.facility.findUnique({
-    where: { id: court.facilityId },
-    select: { ownerId: true },
-  });
-  if (!facility) throw new Error('Facility not found.');
-  if (role !== 'SUPER_ADMIN' && facility.ownerId !== userId) {
+  const facilityOwnerId = booking.court?.facility?.ownerId;
+  if (!facilityOwnerId) throw new Error('Facility not found.');
+  if (role !== 'SUPER_ADMIN' && facilityOwnerId !== userId) {
     throw new Error('That booking belongs to another owner.');
   }
   return booking;

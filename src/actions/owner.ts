@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { storage } from '@/lib/storage';
@@ -263,6 +263,7 @@ export async function deleteCourtAction(_prev: ActionState, formData: FormData):
     if (court._count.bookings > 0) {
       await prisma.court.update({ where: { id: courtId }, data: { isActive: false } });
       revalidatePath('/owner/courts');
+      updateTag('home-stats');
       return { ok: true, message: 'Court has bookings, so it was deactivated instead of deleted.' };
     }
 
@@ -272,5 +273,6 @@ export async function deleteCourtAction(_prev: ActionState, formData: FormData):
     return { ok: false, message: 'Failed to delete court. Please try again.' };
   }
   revalidatePath('/owner/courts');
+  updateTag('home-stats');
   return { ok: true, message: 'Court deleted.' };
 }

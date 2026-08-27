@@ -26,24 +26,48 @@ export default async function CheckoutPage({ params }: { params: Promise<{ booki
 
   const group = await prisma.bookingGroup.findUnique({
     where: { id: bookingId },
-    include: {
-      receipt: true,
+    select: {
+      id: true,
+      playerId: true,
+      totalPrice: true,
+      status: true,
+      expiresAt: true,
+      paymentMethodId: true,
+      receipt: {
+        select: {
+          screenshotUrl: true,
+          rejectionReason: true,
+        },
+      },
       facility: {
-        include: {
+        select: {
+          id: true,
+          name: true,
           owner: {
             select: {
               name: true,
               paymentMethods: {
                 where: { isActive: true },
                 orderBy: { sortOrder: 'asc' },
+                select: {
+                  id: true,
+                  name: true,
+                  accountName: true,
+                  accountNumber: true,
+                  qrCodeUrl: true,
+                  instructions: true,
+                },
               },
             },
           },
         },
       },
       bookings: {
-        include: {
-          court: true,
+        select: {
+          id: true,
+          date: true,
+          startTime: true,
+          court: { select: { name: true } },
         },
         orderBy: { startTime: 'asc' },
       },

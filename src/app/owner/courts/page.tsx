@@ -16,7 +16,10 @@ export default async function OwnerCourtsPage() {
 
   const facilities = await prisma.facility.findMany({
     where: { ownerId: userId },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      createdAt: true,
       courts: {
         orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
         select: {

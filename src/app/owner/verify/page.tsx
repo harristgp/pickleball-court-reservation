@@ -17,10 +17,25 @@ export default async function OwnerVerifyPage() {
       facility: { ownerId: userId },
       status: 'PENDING_VERIFICATION',
     },
-    include: {
-      receipt: true,
+    select: {
+      id: true,
+      totalPrice: true,
+      createdAt: true,
+      receipt: {
+        select: {
+          screenshotUrl: true,
+          referenceNumber: true,
+          amountClaimed: true,
+          uploadedAt: true,
+        },
+      },
       bookings: {
-        include: { court: true },
+        select: {
+          id: true,
+          date: true,
+          startTime: true,
+          court: { select: { name: true, type: true } },
+        },
         orderBy: { startTime: 'asc' },
       },
       facility: { select: { name: true } },

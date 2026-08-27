@@ -74,6 +74,8 @@ model BookingGroup {
   receipt         PaymentReceipt?
 
   @@index([playerId, createdAt])
+  @@index([playerId, status])
+  @@index([facilityId, status])
   @@index([status])
   @@index([expiresAt])
   @@index([paymentMethodId])
@@ -102,6 +104,7 @@ model Booking {
   group   BookingGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([courtId, date])
+  @@index([date, status])
   @@index([playerId, createdAt])
   @@index([status])
   @@index([groupId])

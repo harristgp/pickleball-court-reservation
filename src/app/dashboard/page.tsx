@@ -34,12 +34,24 @@ export default async function DashboardPage() {
 
   const groups = await prisma.bookingGroup.findMany({
     where: { playerId: user.id },
-    include: {
-      bookings: {
-        orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
-        include: { court: true },
-      },
+    select: {
+      id: true,
+      totalPrice: true,
+      createdAt: true,
+      status: true,
       facility: { select: { name: true } },
+      bookings: {
+        select: {
+          id: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          totalPrice: true,
+          status: true,
+          court: { select: { name: true, type: true } },
+        },
+        orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
+      },
     },
     orderBy: { createdAt: 'desc' },
     take: 50,

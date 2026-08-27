@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MapPin, Building2, Trees, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
@@ -14,11 +15,13 @@ export function FacilityCard({ facility }: { facility: FacilitySummary }) {
     >
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-100">
         {coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={coverUrl}
             alt={facility.name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-100 via-brand-50 to-emerald-50">

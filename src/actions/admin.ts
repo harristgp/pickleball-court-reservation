@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/session';
 import { toggleOwnerSchema } from '@/lib/validators';
@@ -31,6 +31,7 @@ export async function toggleOwnerActiveAction(_prev: ActionState, formData: Form
 
   revalidatePath('/admin/owners');
   revalidatePath('/discover');
+  updateTag('home-stats');
 
   return {
     ok: true,

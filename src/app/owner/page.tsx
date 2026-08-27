@@ -25,7 +25,14 @@ export default async function OwnerHome() {
     }),
     prisma.booking.findMany({
       where: { date: today, status: { not: 'REJECTED' }, court: { facility: { ownerId: userId } } },
-      include: { court: { include: { facility: true } }, player: { select: { name: true, email: true } } },
+      select: {
+        id: true,
+        startTime: true,
+        totalPrice: true,
+        status: true,
+        court: { select: { name: true } },
+        player: { select: { name: true, email: true } },
+      },
       orderBy: { startTime: 'asc' },
     }),
     prisma.booking.findMany({

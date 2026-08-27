@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { CalendarDays, Clock, Hash, Receipt, User, Wallet, ZoomIn } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
 import { Badge, Card, EmptyState } from '@/components/ui';
@@ -99,11 +100,13 @@ export function VerifyQueue({ items }: { items: QueueItem[] }) {
                   className="group relative flex min-h-[240px] items-center justify-center border-t border-zinc-100 bg-zinc-50 p-3 md:border-l md:border-t-0"
                   aria-label={`Zoom receipt from ${item.playerName}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={item.screenshotUrl}
                     alt={`Payment receipt from ${item.playerName}`}
+                    width={280}
+                    height={256}
                     className="max-h-64 w-auto rounded-lg object-contain shadow-card"
+                    unoptimized
                   />
                   <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full bg-zinc-900/80 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
                     <ZoomIn className="h-3.5 w-3.5" aria-hidden />
@@ -119,11 +122,13 @@ export function VerifyQueue({ items }: { items: QueueItem[] }) {
       <Modal open={Boolean(zoomed)} onClose={() => setZoomed(null)} title={`Receipt — ${zoomed?.playerName ?? ''}`}>
         {zoomed && (
           <div className="space-y-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={zoomed.screenshotUrl}
               alt={`Payment receipt from ${zoomed.playerName}`}
+              width={800}
+              height={600}
               className="mx-auto max-h-[70vh] w-auto rounded-lg object-contain"
+              unoptimized
             />
             <p className="text-center text-sm text-zinc-500">
               {zoomed.courtName} · {zoomed.dateLabel} · {zoomed.timeLabel} · {formatMoney(zoomed.amount)}

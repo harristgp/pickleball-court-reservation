@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { unstable_cache } from 'next/cache';
 import { CalendarDays, MapPin, QrCode, ShieldCheck } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/session';
@@ -27,11 +28,22 @@ const STEPS = [
   },
 ];
 
+const getCourtStats = unstable_cache(
+  async () => {
+    const [facilityCount, courtCount] = await Promise.all([
+      prisma.facility.count({ where: { isActive: true, owner: { isActive: true } } }),
+      prisma.court.count({ where: { isActive: true, facility: { isActive: true, owner: { isActive: true } } } }),
+    ]);
+    return { facilityCount, courtCount };
+  },
+  ['home-stats'],
+  { revalidate: 60, tags: ['home-stats'] },
+);
+
 export default async function HomePage() {
-  const [user, facilityCount, courtCount] = await Promise.all([
+  const [user, { facilityCount, courtCount }] = await Promise.all([
     getCurrentUser(),
-    prisma.facility.count({ where: { isActive: true, owner: { isActive: true } } }),
-    prisma.court.count({ where: { isActive: true, facility: { isActive: true, owner: { isActive: true } } } }),
+    getCourtStats(),
   ]);
 
   return (
