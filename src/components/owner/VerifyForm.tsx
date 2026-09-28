@@ -18,7 +18,7 @@ export function VerifyForm({ bookingId }: { bookingId: string }) {
 
   return (
     <form action={formAction} className="space-y-3">
-      <input type="hidden" name="bookingId" value={bookingId} />
+      <input type="hidden" name="groupId" value={bookingId} />
 
       {state.message && <Alert tone={state.ok ? 'success' : 'error'}>{state.message}</Alert>}
 

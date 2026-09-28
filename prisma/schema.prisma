@@ -72,6 +72,7 @@ model BookingGroup {
   paymentMethod   PaymentMethod?   @relation(fields: [paymentMethodId], references: [id])
   player          User             @relation(fields: [playerId], references: [id], onDelete: Cascade)
   receipt         PaymentReceipt?
+  xenditPayments  XenditPayment[]
 
   @@index([playerId, createdAt])
   @@index([playerId, status])
@@ -154,9 +155,14 @@ model User {
   name           String
   phone          String?
   role           Role             @default(PLAYER)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  isActive       Boolean          @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  isActive       Boolean        @default(true)
+  /// XenPlatform sub-account Business ID for this owner. When set, Xendit
+  /// Payment Sessions for their facilities are created with the `for-user-id`
+  /// header so funds settle into the owner's own Xendit balance instead of
+  /// the platform master account. Null = settle to master (manual payouts).
+  xenditSubAccountId String?    @unique
   booking        Booking[]
   bookingGroup   BookingGroup[]
   facilities     Facility[]
@@ -183,4 +189,77 @@ enum BookingStatus {
   PENDING_VERIFICATION
   CONFIRMED
   REJECTED
+}
+
+/// Internal status of a single Xendit Payment Session attempt.
+///
+/// A BookingGroup keeps its existing BookingStatus lifecycle; a PAID Xendit
+/// payment flips the group (and its bookings) to CONFIRMED, while any other
+/// terminal Xendit outcome leaves the group in PENDING_PAYMENT so the player
+/// can retry until the hold in `expiresAt` is swept.
+enum XenditPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+/// One row per Xendit Payment Session created for a BookingGroup.
+///
+/// A group may have several rows (one per retry); only one PENDING row is
+/// ever active at a time. The webhook handler is the sole writer of terminal
+/// statuses — never the browser return URL.
+model XenditPayment {
+  id               String              @id @default(cuid())
+  groupId          String
+  /// Our unique merchant reference sent as Xendit's `reference_id`.
+  referenceId      String              @unique
+  /// Xendit's `payment_session_id` (e.g. `ps-...`), known after creation.
+  paymentSessionId String?             @unique
+  /// Hosted checkout URL returned at creation; reused while the row is PENDING.
+  checkoutUrl      String?
+  /// True when the session was created `for-user-id`, i.e. funds settle into
+  /// the facility owner's sub-account rather than the platform master.
+  settledToOwner   Boolean           @default(false)
+  /// Xendit's `payment_id`, populated when the session completes.
+  paymentId        String?
+  /// Xendit's `payment_request_id`, populated when the session completes.
+  paymentRequestId String?
+  amount           Decimal             @db.Decimal(10, 2)
+  currency         String              @default("PHP")
+  status           XenditPaymentStatus @default(PENDING)
+  /// Channel the customer actually paid with (e.g. `GCASH`, `CARDS`).
+  paymentChannel   String?
+  failureCode      String?
+  expiresAt        DateTime?
+  paidAt           DateTime?
+  /// Last processed webhook/event identifier for this payment (audit trail).
+  lastWebhookId    String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  group            BookingGroup        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, status])
+  @@index([groupId, createdAt])
+  @@index([status])
+}
+
+/// Raw Xendit webhook deliveries, keyed by event id for idempotency.
+///
+/// Every delivery is recorded before processing so a duplicate delivery of
+/// the same event is acknowledged without touching payment state twice.
+/// Serverless-safe: idempotency lives in the database, not in memory.
+model XenditWebhookEvent {
+  id               String   @id @default(cuid())
+  /// Xendit's webhook/event identifier (`id` field of the payload).
+  eventId          String   @unique
+  event            String
+  paymentSessionId String?
+  referenceId      String?
+  payload          Json
+  receivedAt       DateTime @default(now())
+
+  @@index([paymentSessionId])
+  @@index([referenceId])
 }

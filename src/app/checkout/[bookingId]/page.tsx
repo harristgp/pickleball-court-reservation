@@ -7,6 +7,7 @@ import { requireUser } from '@/lib/session';
 import { releaseExpiredHolds } from '@/lib/slots';
 import { decimalToNumber, formatMoney } from '@/lib/money';
 import { formatDateKey, formatSlotRange, toDateKey } from '@/lib/dates';
+import { isXenditConfigured } from '@/lib/xendit';
 import type { PaymentMethodSummary } from '@/lib/types';
 import { Card, CardHeader, Alert } from '@/components/ui';
 import { StatusBadge } from '@/components/layout/StatusBadge';
@@ -14,6 +15,7 @@ import { QrPanel } from '@/components/checkout/QrPanel';
 import { ExpiryCountdown } from '@/components/checkout/ExpiryCountdown';
 import { ReceiptUploader } from '@/components/checkout/ReceiptUploader';
 import { CancelBookingButton } from '@/components/checkout/CancelBookingButton';
+import { XenditPayButton } from '@/components/checkout/XenditPayButton';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Submit payment' };
@@ -46,6 +48,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ booki
           owner: {
             select: {
               name: true,
+              xenditSubAccountId: true,
               paymentMethods: {
                 where: { isActive: true },
                 orderBy: { sortOrder: 'asc' },
@@ -155,10 +158,30 @@ export default async function CheckoutPage({ params }: { params: Promise<{ booki
         </Alert>
       )}
 
+      {group.status === 'PENDING_PAYMENT' && isXenditConfigured() && (
+        <Card className="p-5">
+          <CardHeader
+            title="Pay online"
+            description="GCash, Maya, cards, and bank transfer via our secure payment partner — confirmed automatically."
+          />
+          <div className="mt-4">
+            <XenditPayButton
+              groupId={group.id}
+              amount={amount}
+              recipientName={facility.owner.name}
+              settlesToOwner={Boolean(facility.owner.xenditSubAccountId)}
+            />
+          </div>
+        </Card>
+      )}
+
       {group.status === 'PENDING_PAYMENT' || group.status === 'PENDING_VERIFICATION' ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="p-5">
-            <CardHeader title="1. Pay the owner" description="Scan the QR or send to the account below." />
+            <CardHeader
+              title={isXenditConfigured() ? 'Or pay the owner manually' : '1. Pay the owner'}
+              description="Scan the QR or send to the account below."
+            />
             <div className="mt-4">
               <QrPanel
                 clubName={facility.owner.name}
@@ -171,7 +194,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ booki
 
           <Card className="p-5">
             <CardHeader
-              title="2. Upload your receipt"
+              title={isXenditConfigured() ? 'Upload your manual-payment receipt' : '2. Upload your receipt'}
               description="A screenshot of the successful transfer is what the owner verifies."
             />
             <div className="mt-4">

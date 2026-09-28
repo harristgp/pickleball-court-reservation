@@ -161,3 +161,18 @@ export const toggleOwnerSchema = z.object({
   ownerId: z.string().cuid(),
   isActive: z.coerce.boolean(),
 });
+
+/**
+ * Linking an owner's XenPlatform sub-account. Empty clears the link (funds
+ * fall back to settling on the platform master account). Otherwise a Xendit
+ * Business ID: opaque, 6–64 URL-safe characters.
+ */
+export const xenditSubAccountSchema = z.object({
+  subAccountId: z
+    .string()
+    .trim()
+    .max(64)
+    .refine((value) => value === '' || /^[A-Za-z0-9_-]{6,64}$/.test(value), {
+      message: 'That does not look like a Xendit Business ID (6–64 letters, numbers, _ or -).',
+    }),
+});

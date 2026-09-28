@@ -10,6 +10,7 @@ import {
   deletePaymentMethodSchema,
   paymentMethodSchema,
   verifyBookingSchema,
+  xenditSubAccountSchema,
 } from '@/lib/validators';
 import { logger, sanitizeError } from '@/lib/logger';
 import type { ActionState } from '@/lib/types';
@@ -182,6 +183,52 @@ export async function deletePaymentMethodAction(_prev: ActionState, formData: Fo
 
   revalidatePath('/owner/settings');
   return { ok: true, message: 'Payment method removed.' };
+}
+
+/**
+ * Link (or unlink) the owner's XenPlatform sub-account for payouts.
+ *
+ * While linked, Xendit sessions for this owner's facilities are created
+ * `for-user-id`, so player payments settle into the owner's own Xendit
+ * balance (withdrawn to their bank from the Xendit dashboard) instead of the
+ * platform master account. Unlinking restores master settlement.
+ *
+ * Only the caller's own row is ever written; the UNIQUE constraint on
+ * `xenditSubAccountId` stops one sub-account from being claimed twice.
+ */
+export async function saveXenditSubAccountAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { userId } = await requireOwner('/owner/settings');
+
+  const parsed = xenditSubAccountSchema.safeParse({
+    subAccountId: String(formData.get('subAccountId') ?? ''),
+  });
+  if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const subAccountId = parsed.data.subAccountId || null;
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { xenditSubAccountId: subAccountId },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return { ok: false, message: 'That sub-account is already linked to another owner.' };
+    }
+    logger.error('saveXenditSubAccountAction db failed', { userId, error: sanitizeError(error) });
+    return { ok: false, message: 'Failed to save. Please try again.' };
+  }
+
+  revalidatePath('/owner/settings');
+  return {
+    ok: true,
+    message: subAccountId
+      ? 'Sub-account linked. New online payments will settle into your Xendit balance.'
+      : 'Sub-account unlinked. Online payments will settle to the platform account.',
+  };
 }
 
 export async function saveCourtAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
