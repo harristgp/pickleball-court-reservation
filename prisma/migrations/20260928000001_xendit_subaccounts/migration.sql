@@ -6,6 +6,6 @@
 -- dashboard). Null keeps the previous behaviour: settle to the platform
 -- master account. The UNIQUE constraint guarantees one owner per sub-account.
 
-ALTER TABLE "User" ADD COLUMN "xenditSubAccountId" "TEXT";
+ALTER TABLE "User" ADD COLUMN "xenditSubAccountId" TEXT;
 
 CREATE UNIQUE INDEX "User_xenditSubAccountId_key" ON "User"("xenditSubAccountId");

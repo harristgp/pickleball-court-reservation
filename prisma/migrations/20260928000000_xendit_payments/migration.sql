@@ -12,22 +12,22 @@ CREATE TYPE "XenditPaymentStatus" AS ENUM ('PENDING', 'PAID', 'FAILED', 'EXPIRED
 
 -- Tables
 CREATE TABLE "XenditPayment" (
-    "id" "TEXT" NOT NULL,
-    "groupId" "TEXT" NOT NULL,
-    "referenceId" "TEXT" NOT NULL,
-    "paymentSessionId" "TEXT",
-    "checkoutUrl" "TEXT",
+    "id" TEXT NOT NULL,
+    "groupId" TEXT NOT NULL,
+    "referenceId" TEXT NOT NULL,
+    "paymentSessionId" TEXT,
+    "checkoutUrl" TEXT,
     "settledToOwner" BOOLEAN NOT NULL DEFAULT false,
-    "paymentId" "TEXT",
-    "paymentRequestId" "TEXT",
+    "paymentId" TEXT,
+    "paymentRequestId" TEXT,
     "amount" DECIMAL(10,2) NOT NULL,
-    "currency" "TEXT" NOT NULL DEFAULT 'PHP',
+    "currency" TEXT NOT NULL DEFAULT 'PHP',
     "status" "XenditPaymentStatus" NOT NULL DEFAULT 'PENDING',
-    "paymentChannel" "TEXT",
-    "failureCode" "TEXT",
+    "paymentChannel" TEXT,
+    "failureCode" TEXT,
     "expiresAt" TIMESTAMP(3),
     "paidAt" TIMESTAMP(3),
-    "lastWebhookId" "TEXT",
+    "lastWebhookId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -35,11 +35,11 @@ CREATE TABLE "XenditPayment" (
 );
 
 CREATE TABLE "XenditWebhookEvent" (
-    "id" "TEXT" NOT NULL,
-    "eventId" "TEXT" NOT NULL,
-    "event" "TEXT" NOT NULL,
-    "paymentSessionId" "TEXT",
-    "referenceId" "TEXT",
+    "id" TEXT NOT NULL,
+    "eventId" TEXT NOT NULL,
+    "event" TEXT NOT NULL,
+    "paymentSessionId" TEXT,
+    "referenceId" TEXT,
     "payload" JSONB NOT NULL,
     "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
